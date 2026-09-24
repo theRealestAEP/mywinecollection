@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Wine Portraits collection",
+  "description": "The wines in the book: every wine logged in the cellar, and the wines you tried somewhere else. The book makes one page for each wine.",
+  "type": "object",
+  "required": ["title", "wines"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "title": {
+      "type": "string",
+      "description": "The book's title, shown on the cover and in the browser tab."
+    },
+    "wines": {
+      "type": "array",
+      "description": "Every wine logged in the cellar. A wine with no bottles left shows in the archive.",
+      "items": { "allOf": [{ "$ref": "#/definitions/wine" }, { "required": ["quantity"] }] }
+    },
+    "wild": {
+      "type": "array",
+      "description": "Wine in the wild: wines you tried somewhere else. These have no quantity.",
+      "items": { "$ref": "#/definitions/wine" }
+    }
+  },
+  "definitions": {
+    "wine": {
+      "type": "object",
+      "required": ["producer", "name", "grapes", "type", "bottle"],
+      "additionalProperties": false,
+      "properties": {
+        "producer": {
+          "type": "string",
+          "description": "Who made the wine, for example \"Château Musar\"."
+        },
+        "name": {
+          "type": "string",
+          "description": "The wine's own name, for example \"Rouge\"."
+        },
+        "vintage": {
+          "type": ["integer", "null"],
+          "description": "The year of the harvest. Use null, or leave it out, for a non-vintage wine."
+        },
+        "region": {
+          "type": "string",
+          "description": "Where the wine comes from, for example \"Bekaa Valley\"."
+        },
+        "country": {
+          "type": "string"
+        },
+        "grapes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "The grape varieties, main grape first."
+        },
+        "type": {
+          "enum": ["red", "white", "rosé", "sparkling", "fortified"],
+          "description": "The style of wine. It also sets how dark the glass is in the drawing."
+        },
+        "alcohol": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 25,
+          "description": "Percent alcohol, from the label."
+        },
+        "bottle": {
+          "enum": ["bordeaux", "burgundy", "champagne", "flute", "port"],
+          "description": "The bottle shape to draw. Pick the closest: \"bordeaux\" has straight sides and high, square shoulders. \"burgundy\" has a wider body and long, sloping shoulders. \"champagne\" is heavy, with sloping shoulders and foil over a wire cage. \"flute\" is tall and slim with a long, gentle taper. \"port\" has straight sides and a bulb in the neck."
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Cellar wines only. The bottles you still have. At 0, the wine moves to the archive."
+        },
+        "tasted": {
+          "type": "string",
+          "description": "Wine in the wild only. When you tried it, for example \"2026-09-20\". A month (\"2026-09\") or a year also works."
+        },
+        "where": {
+          "type": "string",
+          "description": "Wine in the wild only. Where you tried it, for example a restaurant or a friend’s house."
+        },
+        "window": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "The drinking window: [first year, last year]."
+        },
+        "place": {
+          "type": "string",
+          "description": "Where it is made: the vineyards, soil and climate."
+        },
+        "history": {
+          "type": "string",
+          "description": "The story of the wine and its maker."
+        },
+        "contents": {
+          "type": "string",
+          "description": "What is in it and how it is made. The page shows the grapes first, then this text."
+        },
+        "aromas": {
+          "type": "string",
+          "description": "What you smell in the glass."
+        },
+        "structure": {
+          "type": "object",
+          "description": "Each level from 1 (low) to 5 (high). Leave out any that do not apply.",
+          "additionalProperties": false,
+          "properties": {
+            "sweetness": { "$ref": "#/definitions/level" },
+            "acidity": { "$ref": "#/definitions/level" },
+            "tannin": { "$ref": "#/definitions/level" },
+            "body": { "$ref": "#/definitions/level" },
+            "finish": { "$ref": "#/definitions/level" }
+          }
+        },
+        "food": {
+          "type": "string",
+          "description": "What it goes well with."
+        },
+        "rating": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Your rating, from 1 to 5."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Your own notes. The book shows them on the page after the wine’s page, with the line breaks you write."
+        },
+        "sketch": {
+          "type": "object",
+          "description": "Short notes in the margin, each with an arrow to a part of the bottle.",
+          "additionalProperties": false,
+          "properties": {
+            "capsule": { "type": "string" },
+            "neck": { "type": "string" },
+            "shoulder": { "type": "string" },
+            "label": { "type": "string" },
+            "glass": { "type": "string" },
+            "base": { "type": "string" }
+          }
+        }
+      }
+    },
+    "level": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+    }
+  }
+}

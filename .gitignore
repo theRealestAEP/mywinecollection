@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env.local
+.convex/
+.DS_Store
+inbox/
+photos/
+
+# Your book's links. Each one holds an access key.
+links.txt

@@ -1,0 +1,520 @@
+/* WinePortrait: paper, inks and type.
+
+   Each page is a fixed 750 × 1000 sheet (3:4, the shape of most e-ink
+   tablets), and main.ts scales it to fit the screen. The page uses three inks
+   so that it holds up in greyscale: black for what the owner wrote and drew,
+   a pale blue-grey for the printed notebook form, and a wine red for the ring
+   a glass leaves on the page, which prints as pale grey on e-ink. */
+
+:root {
+  --paper: #fbfaf6;
+  --ink: #1d1914;
+  --form: #66757b;
+  --rule: #c9d0d2;
+  --wine: #8c2230;
+  --desk: #2f2c29;
+
+  --hand: 'Annie Use Your Telescope', cursive;
+  --print: 'IM Fell English', Georgia, serif;
+  --print-caps: 'IM Fell English SC', Georgia, serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.page {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 750px;
+  height: 1000px;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--print);
+  background: var(--paper) radial-gradient(circle, var(--rule) 1px, transparent 1.4px) 11px 11px / 22px 22px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* On a computer screen, show the page lying on a dark desk. */
+@media (hover: hover) and (pointer: fine) {
+  html,
+  body {
+    background: var(--desk);
+  }
+
+  .page {
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.3), 0 24px 60px rgb(0 0 0 / 0.4);
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:focus-visible {
+  outline: 2px solid var(--wine);
+  outline-offset: 2px;
+}
+
+.paper {
+  fill: var(--paper);
+}
+
+/* Line boil: the pen lines wobble a little, as in hand-drawn animation. It
+   runs only on screens with a mouse, so e-ink tablets keep still lines
+   (constant motion makes an e-ink screen flicker and ghost). People who ask
+   their device for less motion also get still lines. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .boil {
+    animation: boil 0.45s steps(1) infinite;
+  }
+}
+
+@keyframes boil {
+  0% {
+    filter: url(#boil-1);
+  }
+
+  33% {
+    filter: url(#boil-2);
+  }
+
+  67% {
+    filter: url(#boil-3);
+  }
+}
+
+/* Words printed on the notebook form */
+.field i,
+.facts dt,
+.about h2,
+.window h2,
+.structure h2,
+.structure-head p,
+.structure dt,
+.caption,
+.plate-caption,
+.index-head {
+  font-family: var(--print);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--form);
+}
+
+/* Printed fields, filled in by hand */
+.fields {
+  position: absolute;
+  left: 44px;
+  right: 44px;
+  top: 30px;
+  display: flex;
+  gap: 22px;
+  align-items: baseline;
+}
+
+.field {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+  font-size: 16px;
+}
+
+.field b {
+  padding: 0 8px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--hand);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 30px;
+}
+
+.field.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.field.grow b {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* The drawing, with notes in the margin */
+.plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.note {
+  position: absolute;
+  left: 40px;
+  font-family: var(--hand);
+  font-size: 19px;
+  line-height: 20px;
+  text-align: right;
+}
+
+.caption {
+  position: absolute;
+  left: 112px;
+  top: 756px;
+  width: 300px;
+  font-size: 15px;
+  text-align: center;
+}
+
+.label-producer {
+  font-family: var(--print-caps);
+}
+
+.label-name {
+  font-family: var(--print);
+  font-style: italic;
+}
+
+.label-vintage {
+  font-family: var(--print);
+}
+
+.scale,
+.year {
+  font-family: var(--hand);
+  font-size: 17px;
+}
+
+/* The written entry */
+.entry {
+  position: absolute;
+  left: 404px;
+  top: 88px;
+  width: 302px;
+  height: 684px;
+  display: flex;
+  flex-direction: column;
+}
+
+.producer {
+  max-height: 130px;
+  overflow: hidden;
+  font-family: var(--hand);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.underline {
+  flex: none;
+  margin: 2px 0 4px;
+}
+
+.cuvee {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cuvee .name {
+  flex: 1;
+  min-width: 0;
+  max-height: 76px;
+  overflow: hidden;
+  font-family: var(--hand);
+  line-height: 1.15;
+}
+
+.vintage {
+  position: relative;
+  padding: 6px 20px;
+  font-family: var(--hand);
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.vintage svg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 4px;
+  align-items: baseline;
+  margin-top: 18px;
+  font-size: 16px;
+}
+
+/* Handwriting that sits on printed lines */
+.facts dd,
+.about p {
+  --line: 1.3em;
+  background: linear-gradient(transparent calc(var(--line) - 1px), var(--rule) 0) 0 0 / 100% var(--line);
+  font-family: var(--hand);
+  line-height: var(--line);
+}
+
+.facts dd {
+  font-size: 21px;
+}
+
+.facts .rating {
+  vertical-align: middle;
+}
+
+/* About the wine: where it's made, its history, what's in it */
+.about {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.about h2 {
+  margin-top: 14px;
+  font-size: 17px;
+}
+
+/* Drinking window */
+.window {
+  position: absolute;
+  left: 44px;
+  top: 800px;
+  width: 410px;
+}
+
+.window h2 {
+  font-size: 17px;
+}
+
+.status {
+  font-family: var(--hand);
+  font-size: 22px;
+}
+
+/* Structure: sweetness, acidity, tannin, body and finish */
+.structure {
+  position: absolute;
+  left: 486px;
+  top: 800px;
+  width: 220px;
+}
+
+.structure-head,
+.structure dl {
+  display: grid;
+  grid-template-columns: 76px 130px;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.structure h2 {
+  font-size: 17px;
+}
+
+.structure-head p {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+  font-size: 13px;
+}
+
+.structure dt {
+  font-size: 15px;
+}
+
+.structure dd {
+  height: 22px;
+}
+
+/* Shown when the book does not load */
+.error {
+  position: absolute;
+  left: 44px;
+  right: 44px;
+  top: 44px;
+  font-family: var(--hand);
+  font-size: 24px;
+  line-height: 1.4;
+}
+
+/* The ring a wet glass left on the page of a wine already drunk */
+.stain {
+  position: absolute;
+  right: -40px;
+  bottom: -64px;
+  color: var(--wine);
+  opacity: 0.18;
+}
+
+/* Tells the reader that the wine has notes on the next page */
+.overleaf {
+  position: absolute;
+  right: 44px;
+  bottom: 20px;
+  font-family: var(--hand);
+  font-size: 20px;
+  color: var(--form);
+}
+
+/* The owner's own notes, on the page after the wine's page */
+.notes {
+  --line: 1.4em;
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  top: 100px;
+  bottom: 64px;
+  overflow: hidden;
+  white-space: pre-line;
+  background: linear-gradient(transparent calc(var(--line) - 1px), var(--rule) 0) 0 0 / 100% var(--line);
+  font-family: var(--hand);
+  line-height: var(--line);
+}
+
+/* Cover */
+.cover {
+  text-align: center;
+}
+
+.cover-volume {
+  margin-top: 46px;
+  font-family: var(--print-caps);
+  font-size: 18px;
+  color: var(--form);
+}
+
+.cover h1 {
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 92px;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.cover-subtitle {
+  font-size: 28px;
+  font-style: italic;
+}
+
+/* Shown on the cover of a book with no wines */
+.empty {
+  position: absolute;
+  left: 110px;
+  right: 110px;
+  top: 420px;
+  font-family: var(--hand);
+  font-size: 28px;
+}
+
+/* The featured bottle and its caption. Tap them to open the wine's page. */
+.feature {
+  position: absolute;
+  left: 175px;
+  top: 230px;
+  width: 400px;
+  height: 480px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.plate-caption {
+  font-size: 16px;
+}
+
+.cover .fields {
+  top: 790px;
+  left: 110px;
+  right: 110px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  text-align: left;
+}
+
+.cover .field i {
+  flex: 0 0 104px;
+  text-align: right;
+}
+
+.cover .field b {
+  flex: 1;
+}
+
+.hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 34px;
+  font-family: var(--hand);
+  font-size: 20px;
+  color: var(--form);
+}
+
+/* Index */
+.contents {
+  position: absolute;
+  left: 64px;
+  right: 64px;
+  top: 64px;
+}
+
+.contents h1 {
+  font-size: 52px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+
+.index {
+  list-style: none;
+  margin-top: 12px;
+}
+
+.index li {
+  border-bottom: 1px solid var(--rule);
+}
+
+.index-head,
+.index-row {
+  display: grid;
+  grid-template-columns: 30px 1fr 56px 132px;
+  column-gap: 12px;
+  align-items: baseline;
+}
+
+.index-head {
+  padding-top: 26px;
+  font-size: 16px;
+}
+
+.index-row {
+  font-family: var(--hand);
+  font-size: 24px;
+  line-height: 40px;
+}
+
+.index-row span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.index-row span:first-child {
+  color: var(--form);
+}

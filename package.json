@@ -1,0 +1,21 @@
+{
+  "name": "wineportrait",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "convex": "convex dev",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p convex",
+    "check-wines": "node scripts/check-wines.mjs",
+    "import-wines": "node scripts/import-wines.mjs"
+  },
+  "dependencies": {
+    "convex": "^1.46.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "wrangler": "^4.137.0"
+  }
+}
