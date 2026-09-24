@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Wine Portraits</title>
+    <script>
+      // On an e-ink screen, the link ends with &eink, and the page keeps still
+      // (see style.css). This runs before the first paint, so the screen never
+      // shows the dark desk.
+      if (new URLSearchParams(location.search).has('eink')) document.documentElement.classList.add('eink');
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

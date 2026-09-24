@@ -25,11 +25,12 @@
   padding: 0;
 }
 
+/* The page lies on a dark desk. */
 html,
 body {
   height: 100%;
   overflow: hidden;
-  background: var(--paper);
+  background: var(--desk);
 }
 
 .page {
@@ -42,21 +43,23 @@ body {
   color: var(--ink);
   font-family: var(--print);
   background: var(--paper) radial-gradient(circle, var(--rule) 1px, transparent 1.4px) 11px 11px / 22px 22px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3), 0 24px 60px rgb(0 0 0 / 0.4);
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  view-transition-name: page;
 }
 
-/* On a computer screen, show the page lying on a dark desk. */
-@media (hover: hover) and (pointer: fine) {
-  html,
-  body {
-    background: var(--desk);
-  }
+/* On an e-ink screen (a link that ends with &eink), the page fills the screen
+   with paper and keeps still: motion makes an e-ink screen flicker and leave
+   ghost images. */
+.eink,
+.eink body {
+  background: var(--paper);
+}
 
-  .page {
-    box-shadow: 0 2px 6px rgb(0 0 0 / 0.3), 0 24px 60px rgb(0 0 0 / 0.4);
-  }
+.eink .page {
+  box-shadow: none;
 }
 
 a {
@@ -73,13 +76,52 @@ a:focus-visible {
   fill: var(--paper);
 }
 
-/* Line boil: the pen lines wobble a little, as in hand-drawn animation. It
-   runs only on screens with a mouse, so e-ink tablets keep still lines
-   (constant motion makes an e-ink screen flicker and ghost). People who ask
-   their device for less motion also get still lines. */
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .boil {
+/* Line boil: the pen lines wobble a little, as in hand-drawn animation. The
+   lines keep still on an e-ink screen, and for people who ask their device
+   for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not(.eink) .boil {
     animation: boil 0.45s steps(1) infinite;
+  }
+}
+
+/* The page turn. Going forward, the page lifts at its right edge, turns away
+   over the spine on the left, and shows the next page below it. Going back,
+   the page before turns down over this one. main.ts starts the turn and sets
+   data-turn, except on an e-ink screen and for people who ask for less
+   motion. */
+:root {
+  view-transition-name: none;
+}
+
+::view-transition-image-pair(page) {
+  perspective: 2400px;
+}
+
+::view-transition-old(page),
+::view-transition-new(page) {
+  transform-origin: left center;
+  animation: none;
+}
+
+:root[data-turn='next']::view-transition-old(page) {
+  z-index: 1;
+  animation: page-away 0.5s ease-in both;
+}
+
+:root[data-turn='back']::view-transition-new(page) {
+  animation: page-back 0.5s ease-out both;
+}
+
+@keyframes page-away {
+  to {
+    transform: rotateY(-90deg);
+  }
+}
+
+@keyframes page-back {
+  from {
+    transform: rotateY(-90deg);
   }
 }
 

@@ -20,13 +20,14 @@ The book has three sections:
 | Archive | Every wine you logged in the cellar that has no bottles left |
 | In the wild | Wines you tried somewhere else, with when and where |
 
-The pages are made for e-ink tablets:
+The pages are made for e-ink tablets. On phones and computers, they also move:
 
 - Each page is a fixed 3:4 sheet, the shape of most e-ink screens.
 - All tone comes from hatched lines, with no gradients.
 - The page uses three inks that stay clear in greyscale.
-- Pages turn instantly, with no animation.
-- The pen lines stay still on touch screens. On a computer with a mouse, the lines "boil": they wobble a little, as in hand-drawn animation. The lines also stay still when the device asks for reduced motion.
+- On a phone or a computer, the pen lines "boil": they wobble a little, as in hand-drawn animation. Each page turns over like the page of a book.
+- On an e-ink tablet, add `&eink` to the end of the link. The page then keeps still and turns instantly, because motion makes an e-ink screen flicker.
+- The page also keeps still when the device asks for reduced motion.
 
 ## How it works
 
@@ -128,7 +129,7 @@ The book deploys to a Convex production deployment and to Cloudflare. You need a
    npx convex run --prod accessKeys:create '{"kind": "display", "name": "Wall tablet"}'
    ```
 
-6. Open `https://<the Worker's address>/?key=<key>`.
+6. Open `https://<the Worker's address>/?key=<key>`. On an e-ink tablet, add `&eink` to the end of the link.
 
 ### Deploy on each push
 

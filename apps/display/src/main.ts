@@ -416,7 +416,20 @@ function turnTo(index: number) {
   location.hash = String(Math.min(Math.max(index, 0), pages.length - 1) + 1);
 }
 
-addEventListener('hashchange', () => show(pageFromAddress()));
+// Pages turn with an animation, except on an e-ink screen (see index.html) and
+// for people who ask their device for less motion.
+const turnMotion =
+  !document.documentElement.classList.contains('eink') && matchMedia('(prefers-reduced-motion: no-preference)').matches;
+
+addEventListener('hashchange', () => {
+  const index = pageFromAddress();
+  if (!turnMotion || !('startViewTransition' in document)) {
+    show(index);
+    return;
+  }
+  document.documentElement.dataset.turn = index > current ? 'next' : 'back';
+  document.startViewTransition(() => show(index));
+});
 addEventListener('resize', fitPage);
 
 addEventListener('keydown', (event) => {
