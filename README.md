@@ -178,10 +178,10 @@ Claude reads the label, picks the bottle shape and adds the wine through Convex.
 
 ## Turn the pages
 
-| To go to | Tap | Or press |
-| --- | --- | --- |
-| The next page | The right third of the screen | → or Page Down |
-| The previous page | The left third of the screen | ← or Page Up |
-| The index and search | The middle of the screen | |
+| To go to | Tap | Swipe | Or press |
+| --- | --- | --- | --- |
+| The next page | › or the right third of the screen | Left | → or Page Down |
+| The previous page | ‹ or the left third of the screen | Right | ← or Page Up |
+| The index and search | The middle of the screen | | |
 
 The page number is in the address (for example `#5`), so a reload keeps your place.

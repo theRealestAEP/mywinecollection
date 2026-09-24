@@ -344,6 +344,29 @@ a:focus-visible {
   height: 22px;
 }
 
+/* The ‹ and › buttons at the left and right edges of the sheet. They sit in
+   the margins, clear of the words on every page. */
+.turn {
+  position: absolute;
+  top: 440px;
+  width: 44px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--print);
+  font-size: 72px;
+  color: var(--form);
+}
+
+.turn.back {
+  left: 0;
+}
+
+.turn.next {
+  right: 0;
+}
+
 /* Shown when the book does not load */
 .error {
   position: absolute;

@@ -6,8 +6,8 @@
 // place of the written sections about it.
 // The page reads the book live from Convex, with the key in its address
 // (?key=…), so a change shows at once. Tap the right or left third of the
-// screen to turn the page, or the middle third for the index. The arrow and
-// page keys work too.
+// screen to turn the page, or the middle third for the index. The ‹ and ›
+// buttons, a swipe, and the arrow and page keys also turn the page.
 
 import { ConvexClient } from 'convex/browser';
 import type { FunctionReturnType } from 'convex/server';
@@ -360,9 +360,17 @@ let query = '';
 
 function show(index: number) {
   current = Math.min(Math.max(index, 0), pages.length - 1);
-  page.innerHTML = pages[current]();
+  page.innerHTML = pages[current]() + turnButtons();
   fitText();
   document.fonts.ready.then(fitText);
+}
+
+// The ‹ and › buttons at the edges of the sheet. The cover has no ‹, and the
+// last page has no ›.
+function turnButtons() {
+  const back = current > 0 ? `<a class="turn back" href="#${current}" aria-label="Previous page">‹</a>` : '';
+  const next = current < pages.length - 1 ? `<a class="turn next" href="#${current + 2}" aria-label="Next page">›</a>` : '';
+  return back + next;
 }
 
 function showMessage(text: string) {
@@ -435,6 +443,23 @@ addEventListener('click', (event) => {
   if (x < 1 / 3) turnTo(current - 1);
   else if (x > 2 / 3) turnTo(current + 1);
   else turnTo(1);
+});
+
+// Swipe left for the next page, and right for the previous one. A touch with
+// two fingers is a pinch, not a swipe. While the page is zoomed in, a swipe
+// moves around the page, so it does not turn it.
+let swipeStart: { x: number; y: number } | undefined;
+addEventListener('touchstart', (event) => {
+  const [touch] = event.touches;
+  swipeStart = event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : undefined;
+});
+addEventListener('touchend', (event) => {
+  if (!swipeStart || event.touches.length || (visualViewport?.scale ?? 1) > 1) return;
+  const [touch] = event.changedTouches;
+  const dx = touch.clientX - swipeStart.x;
+  const dy = touch.clientY - swipeStart.y;
+  swipeStart = undefined;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > 2 * Math.abs(dy)) turnTo(current + (dx < 0 ? 1 : -1));
 });
 
 document.body.insertAdjacentHTML('beforeend', BOIL_FILTERS);
