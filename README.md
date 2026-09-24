@@ -20,12 +20,13 @@ The book has three sections:
 | Archive | Every wine you logged in the cellar that has no bottles left |
 | In the wild | Wines you tried somewhere else, with when and where |
 
-The pages are made for e-ink tablets. On phones and computers, they also move:
+The pages are made for e-ink tablets, and they also work on phones and computers:
 
 - Each page is a fixed 3:4 sheet, the shape of most e-ink screens.
 - All tone comes from hatched lines, with no gradients.
 - The page uses three inks that stay clear in greyscale.
-- On a phone or a computer, the pen lines "boil": they wobble a little, as in hand-drawn animation. Pages slide from one to the next.
+- On a phone, the page becomes one column of paper that you scroll. The wine's name and its portrait come first, at a size you can read.
+- On a phone or a computer, each new page inks itself in: its drawing appears stroke by stroke, outline first. Then the pen lines "boil": they wobble a little, as in hand-drawn animation.
 - On an e-ink tablet, add `&eink` to the end of the link. The page then keeps still and turns instantly, because motion makes an e-ink screen flicker.
 - The page also keeps still when the device asks for reduced motion.
 
@@ -179,10 +180,10 @@ Claude reads the label, picks the bottle shape and adds the wine through Convex.
 
 ## Turn the pages
 
-| To go to | Tap | Swipe | Or press |
+| To go to | On a tablet or computer | On a phone | Keys |
 | --- | --- | --- | --- |
-| The next page | › or the right third of the screen | Left | → or Page Down |
-| The previous page | ‹ or the left third of the screen | Right | ← or Page Up |
-| The index and search | The middle of the screen | | |
+| The next page | Tap › or the right third of the page, or swipe left | Tap ›, or swipe left | → or Page Down |
+| The previous page | Tap ‹ or the left third of the page, or swipe right | Tap ‹, or swipe right | ← or Page Up |
+| The index and search | Tap the middle of the page | Tap Index | |
 
 The page number is in the address (for example `#5`), so a reload keeps your place.

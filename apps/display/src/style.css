@@ -1,7 +1,8 @@
 /* WinePortrait: paper, inks and type.
 
    Each page is a fixed 750 × 1000 sheet (3:4, the shape of most e-ink
-   tablets), and main.ts scales it to fit the screen. The page uses three inks
+   tablets), and main.ts scales it to fit the screen. On a phone, the page is
+   one column instead (see the Phone section at the end). The page uses three inks
    so that it holds up in greyscale: black for what the owner wrote and drew,
    a pale blue-grey for the printed notebook form, and a wine red for the ring
    a glass leaves on the page, which prints as pale grey on e-ink. */
@@ -75,44 +76,28 @@ a:focus-visible {
   fill: var(--paper);
 }
 
-/* Line boil: the pen lines wobble a little, as in hand-drawn animation. The
-   lines keep still on an e-ink screen, and for people who ask their device
-   for less motion. */
+/* Line boil: the pen lines wobble a little, as in hand-drawn animation. */
 @media (prefers-reduced-motion: no-preference) {
-  :root:not(.eink) .boil {
+  .boil {
     animation: boil 0.45s steps(1) infinite;
   }
 }
 
-/* The page turn: the screen slides, and the next page slides in beside it.
-   Going forward, pages move to the left; going back, to the right. main.ts
-   starts the turn and sets data-turn, except on an e-ink screen and for
-   people who ask for less motion. */
-:root {
-  --turn: 1;
+/* The lines keep still on an e-ink screen. They also keep still while a new
+   page inks itself in, and its marks appear one after another (see inkIn in
+   main.ts). */
+.eink .boil,
+.inking .boil {
+  animation: none;
 }
 
-:root[data-turn='back'] {
-  --turn: -1;
+.inking .boil > * {
+  animation: ink 0.35s ease-out both;
 }
 
-::view-transition-old(root) {
-  animation: slide-out 0.35s ease-in-out both;
-}
-
-::view-transition-new(root) {
-  animation: slide-in 0.35s ease-in-out both;
-}
-
-@keyframes slide-out {
-  to {
-    transform: translateX(calc(var(--turn) * -100%));
-  }
-}
-
-@keyframes slide-in {
+@keyframes ink {
   from {
-    transform: translateX(calc(var(--turn) * 100%));
+    opacity: 0;
   }
 }
 
@@ -185,7 +170,13 @@ a:focus-visible {
   overflow: hidden;
 }
 
-/* The drawing, with notes in the margin */
+/* The drawing, with notes in the margin. On the sheet, the figure covers the
+   page, so they sit where the page puts them. */
+.figure {
+  position: absolute;
+  inset: 0;
+}
+
 .plate {
   position: absolute;
   left: 0;
@@ -203,8 +194,6 @@ a:focus-visible {
 
 .caption {
   position: absolute;
-  left: 112px;
-  top: 756px;
   width: 300px;
   font-size: 15px;
   text-align: center;
@@ -400,6 +389,11 @@ a:focus-visible {
   right: 0;
 }
 
+/* On the sheet, the middle of the page is the way to the index. */
+.turn.index {
+  display: none;
+}
+
 /* Shown when the book does not load */
 .error {
   position: absolute;
@@ -514,15 +508,13 @@ a:focus-visible {
   line-height: 1.1;
 }
 
-/* The index title, with the search box beside it */
-.contents-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 24px;
+/* The search box: a printed field, filled in by hand, beside the title */
+.search {
+  position: absolute;
+  top: 22px;
+  right: 0;
 }
 
-/* The search box: a printed field, filled in by hand */
 .search input {
   width: 240px;
   padding: 0 8px;
@@ -587,4 +579,199 @@ a:focus-visible {
 
 .index-row span:first-child {
   color: var(--form);
+}
+
+/* ---- Phone ------------------------------------------------------------------
+   On a phone, the page is one column of paper, as wide as the screen, that
+   scrolls. main.ts sets the phone class and zooms the column to fit. */
+.phone,
+.phone body {
+  height: auto;
+  overflow: visible;
+  background: var(--paper);
+}
+
+.phone .page {
+  position: relative;
+  left: auto;
+  top: auto;
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  height: auto;
+  margin: 0 auto;
+  padding-bottom: 120px;
+  box-shadow: none;
+}
+
+/* A wine's page opens like a title card: the name, then the portrait. The
+   printed fields and the rest follow. */
+.phone .entry {
+  display: contents;
+}
+
+.phone .producer {
+  order: 1;
+  margin: 32px 20px 0;
+}
+
+.phone .entry > .underline {
+  order: 2;
+  margin: 2px 20px 4px;
+}
+
+.phone .cuvee {
+  order: 3;
+  margin: 0 20px;
+}
+
+.phone .figure {
+  order: 4;
+  position: relative;
+}
+
+.phone .plate {
+  position: static;
+  display: block;
+}
+
+.phone .page > .fields {
+  order: 5;
+}
+
+.phone .facts {
+  order: 6;
+  margin: 18px 20px 0;
+}
+
+.phone .about {
+  order: 7;
+  margin: 6px 20px 0;
+  overflow: visible;
+}
+
+.phone .window {
+  order: 8;
+}
+
+.phone .structure {
+  order: 9;
+}
+
+.phone .fields {
+  position: static;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  margin: 8px 20px 0;
+}
+
+.phone .field.grow {
+  flex-basis: 100%;
+}
+
+.phone .window,
+.phone .structure {
+  position: static;
+  width: auto;
+  margin: 44px 20px 0;
+}
+
+.phone .window svg {
+  width: 100%;
+  height: auto;
+}
+
+.phone .cover h1 {
+  margin: 0 20px;
+}
+
+.phone .feature {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.phone .cover .fields {
+  margin: 12px 44px 0;
+}
+
+.phone .hint {
+  position: static;
+  margin: 32px 32px 0;
+}
+
+.phone .empty {
+  position: static;
+  margin: 120px 40px 0;
+}
+
+.phone .contents {
+  position: static;
+  margin: 40px 20px 0;
+}
+
+.phone .search {
+  position: static;
+  margin-top: 16px;
+}
+
+.phone .search input {
+  flex: 1;
+  width: auto;
+}
+
+.phone .index-head,
+.phone .index-row {
+  grid-template-columns: 22px 1fr 44px 86px;
+  column-gap: 8px;
+}
+
+/* Long names wrap onto a second line. */
+.phone .index-row {
+  padding: 8px 0;
+  line-height: 30px;
+}
+
+.phone .index-row span:nth-child(2) {
+  white-space: normal;
+}
+
+/* The ‹, Index and › buttons sit in a bar at the foot of the screen, over a
+   fade into the paper. */
+.phone .turns {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 72px 1fr 72px;
+  align-items: center;
+  height: 84px;
+  padding-top: 16px;
+  background: linear-gradient(transparent, var(--paper) 40%);
+}
+
+.phone .turn {
+  position: static;
+  width: 72px;
+  height: 64px;
+}
+
+.phone .turn.back {
+  grid-column: 1;
+}
+
+.phone .turn.index {
+  display: flex;
+  grid-column: 2;
+  justify-self: center;
+  width: auto;
+  padding: 0 24px;
+  font-size: 22px;
+  font-style: italic;
+}
+
+.phone .turn.next {
+  grid-column: 3;
 }

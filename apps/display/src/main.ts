@@ -5,9 +5,11 @@
 // in the wild (tried somewhere else). Your own notes about a wine take the
 // place of the written sections about it.
 // The page reads the book live from Convex, with the key in its address
-// (?key=…), so a change shows at once. Tap the right or left third of the
-// screen to turn the page, or the middle third for the index. The ‹ and ›
-// buttons, a swipe, and the arrow and page keys also turn the page.
+// (?key=…), so a change shows at once. On the sheet, tap the right or left
+// third of the screen to turn the page, or the middle third for the index.
+// On a phone, the page is one column that scrolls, with a bar of buttons at
+// the foot of the screen. The ‹ and › buttons, a swipe, and the arrow and
+// page keys also turn the page.
 
 import { ConvexClient } from 'convex/browser';
 import type { FunctionReturnType } from 'convex/server';
@@ -55,6 +57,10 @@ const STYLES: Record<Wine['type'], string> = { red: 'Red', white: 'White', rosé
 const LEVELS = { sweetness: 'Sweetness', acidity: 'Acidity', tannin: 'Tannin', body: 'Body', finish: 'Finish' } as const;
 const PARTS = ['capsule', 'neck', 'shoulder', 'label', 'glass', 'base'] as const;
 const INDEX_ROWS_PER_PAGE = 18;
+// On a phone, the page is one column this wide, zoomed to fill the screen.
+const COLUMN = 420;
+// How long a new page takes to ink itself in, in milliseconds.
+const INK_TIME = 900;
 
 function plural(count: number, word: string) {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -152,35 +158,41 @@ function coverPage({ title, cellar, archive, wild, addressOf }: Book): string {
   let plate = '<p class="empty">No wines yet. Add your first bottle, and it shows here.</p>';
   if (wine) {
     const vintage = wine.vintage || 'NV';
+    // On the sheet, the drawing spans the whole page. On a phone, it is a
+    // block of its own in the column.
+    const [width, height, cx, ground] = phone ? [COLUMN, 520, COLUMN / 2, 470] : [750, 1000, 375, 640];
     const bottle = drawBottle({
       form: wine.bottle,
       darkness: GLASS_DARKNESS[wine.type],
       label: { producer: wine.producer, name: wine.name, vintage },
-      cx: 375,
-      ground: 640,
+      cx,
+      ground,
       scale: Math.min(13, 400 / BOTTLES[wine.bottle].height),
       rand: seededRandom(`${wine.producer} ${wine.name} ${wine.vintage}`),
       id: 'cover',
     });
     plate = `
-      ${svg(750, 1000, bottle.marks, 'plate', bottle.words)}
+      ${svg(width, height, bottle.marks, 'plate', bottle.words)}
       <a class="feature" href="${addressOf(wine)}">
         <span class="plate-caption">Plate I. ${escapeHtml(wine.producer)}, ${escapeHtml(wine.name)}, ${vintage}.</span>
       </a>`;
   }
   const bottles = cellar.reduce((sum, each) => sum + each.quantity, 0);
+  const hint = phone
+    ? 'Tap the bottle to open its page. Swipe to turn the page.'
+    : 'Tap the bottle to open its page. Tap the right edge to turn the page, or the middle to search.';
   return `
     <div class="cover">
       <p class="cover-volume">Vol. I</p>
       <h1>${escapeHtml(title)}</h1>
       <p class="cover-subtitle">the cellar, bottle by bottle</p>
-      ${plate}
+      <div class="figure">${plate}</div>
       <div class="fields">
         <p class="field"><i>In the cellar</i><b>${plural(bottles, 'bottle')} of ${plural(cellar.length, 'wine')}</b></p>
         <p class="field"><i>Archive</i><b>${plural(archive.length, 'wine')}</b></p>
         <p class="field"><i>In the wild</i><b>${plural(wild.length, 'wine')}</b></p>
       </div>
-      <p class="hint">Tap the bottle to open its page. Tap the right edge to turn the page, or the middle to search.</p>
+      <p class="hint">${hint}</p>
     </div>`;
 }
 
@@ -193,8 +205,9 @@ function indexPage(book: Book, rows: IndexRow[], first: boolean): string {
     : '';
   return `
     <div class="contents">
-      <div class="contents-head"><h1>Index</h1>${search}</div>
+      <h1>Index</h1>
       ${drawUnderline(300, rand)}
+      ${search}
       <ol class="index">${first && query ? foundItems(book) : indexItems(book, rows)}</ol>
     </div>`;
 }
@@ -230,21 +243,28 @@ function entryPage(wine: Wine, index: number): string {
   const number = index + 1;
   const vintage = wine.vintage || 'NV';
 
+  // On the sheet, the drawing takes the left of the page. On a phone, it is a
+  // block of its own under the wine's name, small enough that the name and
+  // the whole bottle fit on the first screen. There the bottle stands in the
+  // middle, or to the right when margin notes need room on its left.
+  const sketch = wine.sketch ?? {};
+  const hasNotes = PARTS.some((part) => sketch[part]);
+  const cx = phone && !hasNotes ? COLUMN / 2 : 262;
+  const ground = phone ? 520 : 690;
   // Draw each bottle as large as the plate allows. The scale bar shows the true size.
-  const scale = Math.min(18, 590 / BOTTLES[form].height);
+  const scale = Math.min(18, (phone ? 500 : 590) / BOTTLES[form].height);
   const bottle = drawBottle({
     form,
     darkness: GLASS_DARKNESS[wine.type],
     label: { producer: wine.producer, name: wine.name, vintage },
-    cx: 262,
-    ground: 690,
+    cx,
+    ground,
     scale,
     rand,
     id: 'bottle',
   });
 
   // Margin notes, each with an arrow to a part of the bottle.
-  const sketch = wine.sketch ?? {};
   const noteRight = bottle.left - 28;
   let marginNotes = '';
   let arrows = '';
@@ -302,8 +322,9 @@ function entryPage(wine: Wine, index: number): string {
       </section>`;
   }
 
-  const scaleBar = drawScaleBar(252, 742, scale, rand);
-  const plate = svg(750, 1000, bottle.marks + arrows + scaleBar.marks, 'plate', bottle.words + scaleBar.words);
+  const scaleBar = drawScaleBar(cx - 10, ground + 52, scale, rand);
+  const [plateWidth, plateHeight] = phone ? [COLUMN, ground + 90] : [750, 1000];
+  const plate = svg(plateWidth, plateHeight, bottle.marks + arrows + scaleBar.marks, 'plate', bottle.words + scaleBar.words);
 
   let structure = '';
   if (wine.structure) {
@@ -325,9 +346,11 @@ function entryPage(wine: Wine, index: number): string {
       ${alcohol}
       ${status}
     </header>
-    ${plate}
-    ${marginNotes}
-    <p class="caption">Fig. ${number}. ${BOTTLES[form].name} bottle, 75 cl.</p>
+    <div class="figure">
+      ${plate}
+      ${marginNotes}
+      <p class="caption" style="left:${cx - 150}px;top:${ground + 66}px">Fig. ${number}. ${BOTTLES[form].name} bottle, 75 cl.</p>
+    </div>
     <section class="entry">
       <h1 class="producer">${escapeHtml(wine.producer)}</h1>
       ${drawUnderline(300, rand)}
@@ -352,9 +375,16 @@ function windowStatus(from: number, to: number, year: number) {
 // ---- Showing and turning pages ---------------------------------------------
 
 const page = document.getElementById('page') as HTMLElement;
+// An e-ink screen keeps still (see index.html), and so does a device that
+// asks for less motion.
+const eink = document.documentElement.classList.contains('eink');
+const motion = !eink && matchMedia('(prefers-reduced-motion: no-preference)').matches;
 let book: Book;
 let pages: Page[] = [];
 let current = 0;
+let shown = -1;
+// A phone shows the page as one column that scrolls (see fitPage).
+let phone = false;
 // The words in the search box. They stay while you turn pages.
 let query = '';
 
@@ -363,14 +393,40 @@ function show(index: number) {
   page.innerHTML = pages[current]() + turnButtons();
   fitText();
   document.fonts.ready.then(fitText);
+  // A new page starts at the top, and inks itself in. A change to the
+  // book redraws the page you are on as it is.
+  if (current !== shown) {
+    scrollTo(0, 0);
+    if (motion) inkIn();
+  }
+  shown = current;
 }
 
-// The ‹ and › buttons at the edges of the sheet. The cover has no ‹, and the
-// last page has no ›.
+// A new page inks itself in: its pen marks appear one after another, the
+// outline of the bottle first and its shadow on the ground last, as if drawn
+// while you watch. Then the lines boil again.
+let inkDone: ReturnType<typeof setTimeout> | undefined;
+function inkIn() {
+  const drawing = [...page.querySelectorAll<SVGElement>('.plate .boil > *')].reverse();
+  const smallMarks = [...page.querySelectorAll<SVGElement>('.boil > *')].filter((mark) => !mark.closest('.plate'));
+  const marks = [...drawing, ...smallMarks];
+  marks.forEach((mark, i) => {
+    mark.style.animationDelay = `${Math.round((i / marks.length) * INK_TIME)}ms`;
+  });
+  page.classList.add('inking');
+  clearTimeout(inkDone);
+  inkDone = setTimeout(() => page.classList.remove('inking'), INK_TIME + 400);
+}
+
+// The ‹ and › buttons, at the edges of the sheet or in the bar at the foot of
+// a phone's screen. The phone's bar also has a way to the index. The cover
+// has no ‹, and the last page has no ›.
 function turnButtons() {
   const back = current > 0 ? `<a class="turn back" href="#${current}" aria-label="Previous page">‹</a>` : '';
   const next = current < pages.length - 1 ? `<a class="turn next" href="#${current + 2}" aria-label="Next page">›</a>` : '';
-  return back + next;
+  const onIndex = current >= 1 && current <= book.indexPages.length;
+  const index = onIndex ? '' : '<a class="turn index" href="#2">Index</a>';
+  return `<nav class="turns">${back}${index}${next}</nav>`;
 }
 
 function showMessage(text: string) {
@@ -398,13 +454,29 @@ function fitText() {
   }
 }
 
-// The page is a fixed 750 × 1000 sheet, scaled to fit the screen. The screen
-// size comes from the root element: on phones, innerWidth also counts the part
-// of the sheet that sticks out past the screen before it is scaled.
+// The page is a fixed 750 × 1000 sheet, scaled to fit the screen. On a phone,
+// that sheet would be too small to read, so the page becomes one column of
+// paper, as wide as the screen, that scrolls. The screen size comes from the
+// root element: on phones, innerWidth also counts the part of the sheet that
+// sticks out past the screen before it is scaled.
 function fitPage() {
   const { clientWidth, clientHeight } = document.documentElement;
-  const scale = Math.min((clientWidth - 32) / 750, (clientHeight - 32) / 1000);
-  page.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  const wasPhone = phone;
+  phone = !eink && (clientWidth < 600 || clientHeight < 500);
+  document.documentElement.classList.toggle('phone', phone);
+  if (phone) {
+    const zoom = Math.min(clientWidth, 520) / COLUMN;
+    page.style.transform = '';
+    page.style.zoom = String(zoom);
+    page.style.minHeight = `${clientHeight / zoom}px`;
+  } else {
+    const scale = Math.min((clientWidth - 32) / 750, (clientHeight - 32) / 1000);
+    page.style.zoom = '';
+    page.style.minHeight = '';
+    page.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  }
+  // The phone column and the sheet draw some pages in different ways.
+  if (phone !== wasPhone && pages.length) show(current);
 }
 
 // The address holds the page number (#1 is the cover), so a reload keeps your place.
@@ -416,20 +488,7 @@ function turnTo(index: number) {
   location.hash = String(Math.min(Math.max(index, 0), pages.length - 1) + 1);
 }
 
-// Pages turn with an animation, except on an e-ink screen (see index.html) and
-// for people who ask their device for less motion.
-const turnMotion =
-  !document.documentElement.classList.contains('eink') && matchMedia('(prefers-reduced-motion: no-preference)').matches;
-
-addEventListener('hashchange', () => {
-  const index = pageFromAddress();
-  if (!turnMotion || !('startViewTransition' in document)) {
-    show(index);
-    return;
-  }
-  document.documentElement.dataset.turn = index > current ? 'next' : 'back';
-  document.startViewTransition(() => show(index));
-});
+addEventListener('hashchange', () => show(pageFromAddress()));
 addEventListener('resize', fitPage);
 
 addEventListener('keydown', (event) => {
@@ -450,8 +509,11 @@ page.addEventListener('input', (event) => {
   if (list) list.innerHTML = query ? foundItems(book) : indexItems(book, book.indexPages[0]);
 });
 
+// Tap the left or right third of the sheet to turn the page, or the middle
+// for the index. On a phone, a tap is part of reading and scrolling, so it
+// turns nothing: the bar at the foot of the screen and a swipe do.
 addEventListener('click', (event) => {
-  if ((event.target as Element).closest('a, label')) return;
+  if (phone || (event.target as Element).closest('a, label')) return;
   const x = event.clientX / document.documentElement.clientWidth;
   if (x < 1 / 3) turnTo(current - 1);
   else if (x > 2 / 3) turnTo(current + 1);
