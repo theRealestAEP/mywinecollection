@@ -8,7 +8,9 @@ A drawn book of your wine cellar, made for e-ink tablets. Each wine gets a page 
 - a drinking-window timeline
 - a chart of its structure: sweetness, acidity, tannin, body and finish
 
-A wine with your own notes gets a second page for them.
+Your own notes about a wine take the place of the written sections about it.
+
+The index has a search box. A search finds the wines that have every word you type, in any field or in your notes. It ignores case and accents, so "rose" finds "Rosé".
 
 The book has three sections:
 
@@ -180,6 +182,6 @@ Claude reads the label, picks the bottle shape and adds the wine through Convex.
 | --- | --- | --- |
 | The next page | The right third of the screen | → or Page Down |
 | The previous page | The left third of the screen | ← or Page Up |
-| The index | The middle of the screen | |
+| The index and search | The middle of the screen | |
 
 The page number is in the address (for example `#5`), so a reload keeps your place.

@@ -126,7 +126,7 @@
         },
         "notes": {
           "type": "string",
-          "description": "Your own notes. The book shows them on the page after the wine’s page, with the line breaks you write."
+          "description": "Your own notes. On the wine’s page, they take the place of place, history and contents, with the line breaks you write."
         },
         "sketch": {
           "type": "object",

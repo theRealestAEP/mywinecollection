@@ -26,7 +26,8 @@ export const wineFields = {
   structure: v.optional(v.object({ sweetness: level, acidity: level, tannin: level, body: level, finish: level })),
   food: v.optional(v.string()),
   rating: v.optional(v.number()),
-  // Your own notes. They show on the page after the wine's page.
+  // Your own notes. On the wine's page, they take the place of place,
+  // history and contents.
   notes: v.optional(v.string()),
   sketch: v.optional(
     v.object({

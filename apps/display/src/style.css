@@ -277,12 +277,14 @@ a:focus-visible {
   vertical-align: middle;
 }
 
-/* About the wine: where it's made, its history, what's in it */
+/* About the wine: your own notes, or where it's made, its history and what's
+   in it. Your notes keep the line breaks you write. */
 .about {
   flex: 1;
   min-height: 0;
   overflow: hidden;
   margin-top: 6px;
+  white-space: pre-line;
 }
 
 .about h2 {
@@ -360,31 +362,6 @@ a:focus-visible {
   bottom: -64px;
   color: var(--wine);
   opacity: 0.18;
-}
-
-/* Tells the reader that the wine has notes on the next page */
-.overleaf {
-  position: absolute;
-  right: 44px;
-  bottom: 20px;
-  font-family: var(--hand);
-  font-size: 20px;
-  color: var(--form);
-}
-
-/* The owner's own notes, on the page after the wine's page */
-.notes {
-  --line: 1.4em;
-  position: absolute;
-  left: 64px;
-  right: 64px;
-  top: 100px;
-  bottom: 64px;
-  overflow: hidden;
-  white-space: pre-line;
-  background: linear-gradient(transparent calc(var(--line) - 1px), var(--rule) 0) 0 0 / 100% var(--line);
-  font-family: var(--hand);
-  line-height: var(--line);
 }
 
 /* Cover */
@@ -479,6 +456,43 @@ a:focus-visible {
   font-size: 52px;
   font-weight: 400;
   line-height: 1.1;
+}
+
+/* The index title, with the search box beside it */
+.contents-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+/* The search box: a printed field, filled in by hand */
+.search input {
+  width: 240px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 24px/30px var(--hand);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.search input:focus {
+  border-bottom-color: var(--ink);
+}
+
+/* A line in the index when a search finds nothing, or more than fits */
+.index-note {
+  padding-left: 42px;
+  font-family: var(--hand);
+  font-size: 24px;
+  line-height: 40px;
 }
 
 .index {

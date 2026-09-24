@@ -2,7 +2,8 @@
 //
 // The book has a cover, the index, then one page for each wine: the wines in
 // the cellar, then the archive (wines with no bottles left), then the wines
-// in the wild (tried somewhere else). A wine with notes gets a second page.
+// in the wild (tried somewhere else). Your own notes about a wine take the
+// place of the written sections about it.
 // The page reads the book live from Convex, with the key in its address
 // (?key=…), so a change shows at once. Tap the right or left third of the
 // screen to turn the page, or the middle third for the index. The arrow and
@@ -43,7 +44,9 @@ interface Book {
   archive: CellarWine[];
   wild: WildWine[];
   entries: Wine[];
+  indexPages: IndexRow[][];
   addressOf: (wine: Wine) => string;
+  find: (query: string) => IndexRow[];
 }
 
 const THIS_YEAR = new Date().getFullYear();
@@ -69,34 +72,74 @@ function inCellar(wine: Wine): wine is CellarWine {
   return 'quantity' in wine;
 }
 
-// Sorts the wines into the pages of the book. Each page is a function that returns its HTML.
-function makePages({ title, wines, wild }: Collection): Page[] {
+// Sorts the wines into the sections of the book, and lays out the index.
+function makeBook({ title, wines, wild }: Collection): Book {
   const cellar = wines.filter((wine) => wine.quantity);
   const archive = wines.filter((wine) => !wine.quantity);
   const entries: Wine[] = [...cellar, ...archive, ...wild];
-  const section = (heading: string, column: string, list: Wine[]): IndexRow[] => (list.length ? [{ heading, column }, ...list] : []);
-  const rows = [...section('In the cellar', 'Bottles', cellar), ...section('Archive', '', archive), ...section('In the wild', 'Tasted', wild)];
+  const rows = indexRows(cellar, archive, wild);
   const indexPages: IndexRow[][] = [];
   for (let i = 0; i < rows.length; i += INDEX_ROWS_PER_PAGE) indexPages.push(rows.slice(i, i + INDEX_ROWS_PER_PAGE));
-
-  // The page number of each wine. A wine with notes has a second page after its own.
-  const pageOf = new Map<Wine, number>();
-  const book: Book = {
+  const firstEntryPage = 1 + indexPages.length;
+  const texts = new Map(entries.map((wine) => [wine, plain(searchText(wine))]));
+  return {
     title,
     cellar,
     archive,
     wild,
     entries,
+    indexPages,
     // The address of a wine's page, for example '#5'.
-    addressOf: (wine) => `#${(pageOf.get(wine) ?? 0) + 1}`,
+    addressOf: (wine) => `#${firstEntryPage + entries.indexOf(wine) + 1}`,
+    // A search finds the wines that have every word of the query, as index rows.
+    find: (query) => {
+      const words = plain(query).split(/\s+/).filter(Boolean);
+      const match = (wine: Wine) => words.every((word) => texts.get(wine)?.includes(word));
+      return indexRows(cellar.filter(match), archive.filter(match), wild.filter(match));
+    },
   };
-  const pages: Page[] = [() => coverPage(book), ...indexPages.map((pageRows) => () => indexPage(book, pageRows))];
-  entries.forEach((wine, i) => {
-    pageOf.set(wine, pages.length);
-    pages.push(() => entryPage(wine, i));
-    if (wine.notes) pages.push(() => notesPage(wine));
-  });
-  return pages;
+}
+
+// Each page is a function that returns its HTML.
+function makePages(book: Book): Page[] {
+  return [
+    () => coverPage(book),
+    ...book.indexPages.map((rows, i) => () => indexPage(book, rows, i === 0)),
+    ...book.entries.map((wine, i) => () => entryPage(wine, i)),
+  ];
+}
+
+// The index: a heading for each section that has wines, then its wines.
+function indexRows(cellar: Wine[], archive: Wine[], wild: Wine[]): IndexRow[] {
+  const section = (heading: string, column: string, list: Wine[]): IndexRow[] => (list.length ? [{ heading, column }, ...list] : []);
+  return [...section('In the cellar', 'Bottles', cellar), ...section('Archive', '', archive), ...section('In the wild', 'Tasted', wild)];
+}
+
+// All the words about a wine, for search.
+function searchText(wine: Wine) {
+  const words = [
+    wine.producer,
+    wine.name,
+    wine.vintage,
+    wine.region,
+    wine.country,
+    ...wine.grapes,
+    STYLES[wine.type],
+    wine.place,
+    wine.history,
+    wine.contents,
+    wine.aromas,
+    wine.food,
+    wine.notes,
+    ...Object.values(wine.sketch ?? {}),
+  ];
+  if (!inCellar(wine)) words.push(wine.tasted, wine.where);
+  return words.filter(Boolean).join(' ');
+}
+
+// Lower case and without accents, so that a search for "rose" finds "Rosé".
+function plain(text: string) {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
 // ---- Pages -----------------------------------------------------------------
@@ -137,12 +180,26 @@ function coverPage({ title, cellar, archive, wild, addressOf }: Book): string {
         <p class="field"><i>Archive</i><b>${plural(archive.length, 'wine')}</b></p>
         <p class="field"><i>In the wild</i><b>${plural(wild.length, 'wine')}</b></p>
       </div>
-      <p class="hint">Tap the bottle to open its page. Tap the right edge to turn the page.</p>
+      <p class="hint">Tap the bottle to open its page. Tap the right edge to turn the page, or the middle to search.</p>
     </div>`;
 }
 
-function indexPage({ entries, addressOf }: Book, rows: IndexRow[]): string {
+// The first index page has the search box. While the box holds a search, that
+// page lists what the search finds.
+function indexPage(book: Book, rows: IndexRow[], first: boolean): string {
   const rand = seededRandom('index');
+  const search = first
+    ? `<label class="field search"><i>Search</i><input type="search" value="${escapeHtml(query)}" autocomplete="off" /></label>`
+    : '';
+  return `
+    <div class="contents">
+      <div class="contents-head"><h1>Index</h1>${search}</div>
+      ${drawUnderline(300, rand)}
+      <ol class="index">${first && query ? foundItems(book) : indexItems(book, rows)}</ol>
+    </div>`;
+}
+
+function indexItems({ entries, addressOf }: Book, rows: IndexRow[]): string {
   const items = rows.map((row) => {
     if ('heading' in row) {
       return `<li class="index-head"><span></span><span>${escapeHtml(row.heading)}</span><span>Vintage</span><span>${row.column}</span></li>`;
@@ -156,12 +213,15 @@ function indexPage({ entries, addressOf }: Book, rows: IndexRow[]): string {
         <span>${escapeHtml(detail)}</span>
       </a></li>`;
   });
-  return `
-    <div class="contents">
-      <h1>Index</h1>
-      ${drawUnderline(300, rand)}
-      <ol class="index">${items.join('')}</ol>
-    </div>`;
+  return items.join('');
+}
+
+// What the search finds, on one index page.
+function foundItems(book: Book): string {
+  const rows = book.find(query);
+  if (!rows.length) return `<li class="index-note">Nothing matches “${escapeHtml(query)}”.</li>`;
+  if (rows.length <= INDEX_ROWS_PER_PAGE) return indexItems(book, rows);
+  return `${indexItems(book, rows.slice(0, INDEX_ROWS_PER_PAGE - 1))}<li class="index-note">There are more. Add a word to the search.</li>`;
 }
 
 function entryPage(wine: Wine, index: number): string {
@@ -217,14 +277,16 @@ function entryPage(wine: Wine, index: number): string {
     .join('');
   const rating = wine.rating ? `<dt>Rating</dt><dd>${drawRating(wine.rating, rand)}</dd>` : '';
 
-  // About the wine. "What's in it" starts with the grapes.
-  const about = (
-    [
-      ['Where it’s made', wine.place],
-      ['History', wine.history],
-      ['What’s in it', [wine.grapes.join(', '), wine.contents].filter(Boolean).join('. ')],
-    ] as [string, string | undefined][]
-  )
+  // About the wine: your own notes, or else where it's made, its history and
+  // what's in it. "What's in it" starts with the grapes.
+  const sections: [string, string | undefined][] = wine.notes
+    ? [['Notes', wine.notes]]
+    : [
+        ['Where it’s made', wine.place],
+        ['History', wine.history],
+        ['What’s in it', [wine.grapes.join(', '), wine.contents].filter(Boolean).join('. ')],
+      ];
+  const about = sections
     .filter((section): section is [string, string] => Boolean(section[1]))
     .map(([heading, text]) => `<h2>${heading}</h2><p>${escapeHtml(text)}</p>`)
     .join('');
@@ -278,18 +340,7 @@ function entryPage(wine: Wine, index: number): string {
     </section>
     ${drinking}
     ${structure}
-    ${wine.notes ? '<p class="overleaf">Notes on the next page</p>' : ''}
     ${inCellar(wine) && !wine.quantity ? drawStain(rand) : ''}`;
-}
-
-// Your own notes about a wine, on the page after the wine's page.
-function notesPage(wine: Wine): string {
-  const name = `${wine.producer}, ${wine.name}, ${wine.vintage || 'NV'}`;
-  return `
-    <header class="fields">
-      <p class="field grow"><i>Notes on</i><b>${escapeHtml(name)}</b></p>
-    </header>
-    <div class="notes">${escapeHtml(wine.notes ?? '')}</div>`;
 }
 
 function windowStatus(from: number, to: number, year: number) {
@@ -301,8 +352,11 @@ function windowStatus(from: number, to: number, year: number) {
 // ---- Showing and turning pages ---------------------------------------------
 
 const page = document.getElementById('page') as HTMLElement;
+let book: Book;
 let pages: Page[] = [];
 let current = 0;
+// The words in the search box. They stay while you turn pages.
+let query = '';
 
 function show(index: number) {
   current = Math.min(Math.max(index, 0), pages.length - 1);
@@ -324,7 +378,6 @@ function fitText() {
     ['.cuvee .name', 32, 18],
     ['.field.grow b', 22, 14],
     ['.about', 22, 14],
-    ['.notes', 26, 16],
   ];
   for (const [selector, largest, smallest] of boxes) {
     for (const box of page.querySelectorAll<HTMLElement>(selector)) {
@@ -337,9 +390,12 @@ function fitText() {
   }
 }
 
-// The page is a fixed 750 × 1000 sheet, scaled to fit the screen.
+// The page is a fixed 750 × 1000 sheet, scaled to fit the screen. The screen
+// size comes from the root element: on phones, innerWidth also counts the part
+// of the sheet that sticks out past the screen before it is scaled.
 function fitPage() {
-  const scale = Math.min((innerWidth - 32) / 750, (innerHeight - 32) / 1000);
+  const { clientWidth, clientHeight } = document.documentElement;
+  const scale = Math.min((clientWidth - 32) / 750, (clientHeight - 32) / 1000);
   page.style.transform = `translate(-50%, -50%) scale(${scale})`;
 }
 
@@ -356,13 +412,26 @@ addEventListener('hashchange', () => show(pageFromAddress()));
 addEventListener('resize', fitPage);
 
 addEventListener('keydown', (event) => {
+  // Keys in the search box type. Enter closes the on-screen keyboard, so that
+  // the whole list of results shows.
+  if (event.target instanceof HTMLInputElement) {
+    if (event.key === 'Enter') event.target.blur();
+    return;
+  }
   if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) turnTo(current + 1);
   if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) turnTo(current - 1);
 });
 
+// Search as you type. Only the list changes, so the search box keeps the keyboard open.
+page.addEventListener('input', (event) => {
+  query = (event.target as HTMLInputElement).value;
+  const list = page.querySelector('.index');
+  if (list) list.innerHTML = query ? foundItems(book) : indexItems(book, book.indexPages[0]);
+});
+
 addEventListener('click', (event) => {
-  if ((event.target as Element).closest('a')) return;
-  const x = event.clientX / innerWidth;
+  if ((event.target as Element).closest('a, label')) return;
+  const x = event.clientX / document.documentElement.clientWidth;
   if (x < 1 / 3) turnTo(current - 1);
   else if (x > 2 / 3) turnTo(current + 1);
   else turnTo(1);
@@ -384,7 +453,8 @@ if (!key) {
     (collection) => {
       if (!collection) return showMessage('The key in this link does not open a book. It may be revoked. Ask the owner for a new link.');
       document.title = collection.title;
-      pages = makePages(collection);
+      book = makeBook(collection);
+      pages = makePages(book);
       show(pageFromAddress());
     },
     (error) => showMessage(`The book could not load: ${error.message}`)
