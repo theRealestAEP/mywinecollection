@@ -47,7 +47,6 @@ body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  view-transition-name: page;
 }
 
 /* On an e-ink screen (a link that ends with &eink), the page fills the screen
@@ -85,43 +84,35 @@ a:focus-visible {
   }
 }
 
-/* The page turn. Going forward, the page lifts at its right edge, turns away
-   over the spine on the left, and shows the next page below it. Going back,
-   the page before turns down over this one. main.ts starts the turn and sets
-   data-turn, except on an e-ink screen and for people who ask for less
-   motion. */
+/* The page turn: the screen slides, and the next page slides in beside it.
+   Going forward, pages move to the left; going back, to the right. main.ts
+   starts the turn and sets data-turn, except on an e-ink screen and for
+   people who ask for less motion. */
 :root {
-  view-transition-name: none;
+  --turn: 1;
 }
 
-::view-transition-image-pair(page) {
-  perspective: 2400px;
+:root[data-turn='back'] {
+  --turn: -1;
 }
 
-::view-transition-old(page),
-::view-transition-new(page) {
-  transform-origin: left center;
-  animation: none;
+::view-transition-old(root) {
+  animation: slide-out 0.35s ease-in-out both;
 }
 
-:root[data-turn='next']::view-transition-old(page) {
-  z-index: 1;
-  animation: page-away 0.5s ease-in both;
+::view-transition-new(root) {
+  animation: slide-in 0.35s ease-in-out both;
 }
 
-:root[data-turn='back']::view-transition-new(page) {
-  animation: page-back 0.5s ease-out both;
-}
-
-@keyframes page-away {
+@keyframes slide-out {
   to {
-    transform: rotateY(-90deg);
+    transform: translateX(calc(var(--turn) * -100%));
   }
 }
 
-@keyframes page-back {
+@keyframes slide-in {
   from {
-    transform: rotateY(-90deg);
+    transform: translateX(calc(var(--turn) * 100%));
   }
 }
 
