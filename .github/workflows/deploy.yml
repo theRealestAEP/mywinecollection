@@ -1,6 +1,6 @@
 # Deploys the book on each push to main: first the Convex backend, then the
-# site to Cloudflare Pages. The repository needs three secrets; the README
-# says where to get them.
+# site to Cloudflare. The repository needs three secrets; the README says
+# where to get them.
 name: Deploy
 
 on:
@@ -23,7 +23,7 @@ jobs:
       - run: npx convex deploy --cmd 'npm run build' --cmd-url-env-var-name VITE_CONVEX_URL
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
-      - run: npx wrangler pages deploy dist/display --project-name=mywinecollection --branch=main
+      - run: npx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

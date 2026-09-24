@@ -28,7 +28,7 @@ The pages are made for e-ink tablets:
 
 ## How it works
 
-Each person runs their own copy. One Convex deployment holds one book: its title, its wines and its access keys. The site is static, and Cloudflare Pages can host it for free.
+Each person runs their own copy. One Convex deployment holds one book: its title, its wines and its access keys. The site is static, and Cloudflare can host it for free.
 
 A screen opens the book with an access key in its address (`…/?key=…`). A key can only read the book. There are two kinds:
 
@@ -93,13 +93,12 @@ You need Node.js 22.12 or later and a free [Convex](https://convex.dev) account.
 
 ## Put it on the web
 
-The book deploys to a Convex production deployment and to Cloudflare Pages. You need a free [Cloudflare](https://cloudflare.com) account.
+The book deploys to a Convex production deployment and to Cloudflare. You need a free [Cloudflare](https://cloudflare.com) account.
 
-1. Log in to Cloudflare, and make the Pages project:
+1. Log in to Cloudflare:
 
    ```bash
    npx wrangler login
-   npx wrangler pages project create mywinecollection --production-branch main
    ```
 
 2. Deploy the backend to production, and build the site with its URL:
@@ -108,10 +107,10 @@ The book deploys to a Convex production deployment and to Cloudflare Pages. You 
    npx convex deploy --cmd 'npm run build' --cmd-url-env-var-name VITE_CONVEX_URL
    ```
 
-3. Upload the site:
+3. Upload the site. Cloudflare serves it as the static files of a Worker, and the command shows the Worker's address. To use another name, change `name` in `wrangler.jsonc`.
 
    ```bash
-   npx wrangler pages deploy dist/display --project-name=mywinecollection --branch=main
+   npx wrangler deploy
    ```
 
 4. Copy your wines from dev to production:
@@ -127,7 +126,7 @@ The book deploys to a Convex production deployment and to Cloudflare Pages. You 
    npx convex run --prod accessKeys:create '{"kind": "display", "name": "Wall tablet"}'
    ```
 
-6. Open `https://<your project>.pages.dev/?key=<key>`. Step 1 shows the address of your project.
+6. Open `https://<the Worker's address>/?key=<key>`.
 
 ### Deploy on each push
 
@@ -136,10 +135,8 @@ The workflow in `.github/workflows/deploy.yml` deploys the backend and the site 
 | Secret | Where to get it |
 | --- | --- |
 | `CONVEX_DEPLOY_KEY` | The Convex dashboard: your project > Production > Settings > Generate Production Deploy Key |
-| `CLOUDFLARE_API_TOKEN` | The Cloudflare dashboard: My Profile > API Tokens > Create Token > Create Custom Token. Give it one permission: Account > Cloudflare Pages > Edit. |
+| `CLOUDFLARE_API_TOKEN` | The Cloudflare dashboard: My Profile > API Tokens > Create Token > the "Edit Cloudflare Workers" template |
 | `CLOUDFLARE_ACCOUNT_ID` | The output of `npx wrangler whoami` |
-
-If you named your Pages project something other than `mywinecollection`, change the name in the workflow too.
 
 ## Admin commands
 
