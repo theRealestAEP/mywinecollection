@@ -159,15 +159,18 @@ function coverPage({ title, cellar, archive, wild, addressOf }: Book): string {
   if (wine) {
     const vintage = wine.vintage || 'NV';
     // On the sheet, the drawing spans the whole page. On a phone, it is a
-    // block of its own in the column.
-    const [width, height, cx, ground] = phone ? [COLUMN, 520, COLUMN / 2, 470] : [750, 1000, 375, 640];
+    // block of its own in the column, small enough that the title, the
+    // bottle and its caption fit on the first screen, above the bar at the
+    // foot. The rest of that screen takes about 390 column units.
+    const room = phone ? Math.max(260, Math.min(400, columnHeight - 390)) : 400;
+    const [width, height, cx, ground] = phone ? [COLUMN, room + 100, COLUMN / 2, room + 50] : [750, 1000, 375, 640];
     const bottle = drawBottle({
       form: wine.bottle,
       darkness: GLASS_DARKNESS[wine.type],
       label: { producer: wine.producer, name: wine.name, vintage },
       cx,
       ground,
-      scale: Math.min(13, 400 / BOTTLES[wine.bottle].height),
+      scale: Math.min(13, room / BOTTLES[wine.bottle].height),
       rand: seededRandom(`${wine.producer} ${wine.name} ${wine.vintage}`),
       id: 'cover',
     });
@@ -244,15 +247,18 @@ function entryPage(wine: Wine, index: number): string {
   const vintage = wine.vintage || 'NV';
 
   // On the sheet, the drawing takes the left of the page. On a phone, it is a
-  // block of its own under the wine's name, small enough that the name and
-  // the whole bottle fit on the first screen. There the bottle stands in the
-  // middle, or to the right when margin notes need room on its left.
+  // block of its own under the wine's name, small enough that the name, the
+  // bottle and its caption fit on the first screen, above the bar at the
+  // foot. The rest of that screen takes about 360 column units. There the
+  // bottle stands in the middle, or to the right when margin notes need room
+  // on its left.
   const sketch = wine.sketch ?? {};
   const hasNotes = PARTS.some((part) => sketch[part]);
   const cx = phone && !hasNotes ? COLUMN / 2 : 262;
-  const ground = phone ? 520 : 690;
+  const room = phone ? Math.max(300, Math.min(500, columnHeight - 360)) : 590;
+  const ground = phone ? room + 20 : 690;
   // Draw each bottle as large as the plate allows. The scale bar shows the true size.
-  const scale = Math.min(18, (phone ? 500 : 590) / BOTTLES[form].height);
+  const scale = Math.min(18, room / BOTTLES[form].height);
   const bottle = drawBottle({
     form,
     darkness: GLASS_DARKNESS[wine.type],
@@ -322,7 +328,8 @@ function entryPage(wine: Wine, index: number): string {
       </section>`;
   }
 
-  const scaleBar = drawScaleBar(cx - 10, ground + 52, scale, rand);
+  // The 5 cm scale bar sits centred under the bottle.
+  const scaleBar = drawScaleBar(cx - 2.5 * scale, ground + 52, scale, rand);
   const [plateWidth, plateHeight] = phone ? [COLUMN, ground + 90] : [750, 1000];
   const plate = svg(plateWidth, plateHeight, bottle.marks + arrows + scaleBar.marks, 'plate', bottle.words + scaleBar.words);
 
@@ -383,8 +390,10 @@ let book: Book;
 let pages: Page[] = [];
 let current = 0;
 let shown = -1;
-// A phone shows the page as one column that scrolls (see fitPage).
+// A phone shows the page as one column that scrolls (see fitPage). Its
+// screen is this many column units tall.
 let phone = false;
+let columnHeight = 0;
 // The words in the search box. They stay while you turn pages.
 let query = '';
 
@@ -462,10 +471,12 @@ function fitText() {
 function fitPage() {
   const { clientWidth, clientHeight } = document.documentElement;
   const wasPhone = phone;
+  const wasHeight = columnHeight;
   phone = !eink && (clientWidth < 600 || clientHeight < 500);
   document.documentElement.classList.toggle('phone', phone);
   if (phone) {
     const zoom = Math.min(clientWidth, 520) / COLUMN;
+    columnHeight = Math.round(clientHeight / zoom);
     page.style.transform = '';
     page.style.zoom = String(zoom);
     page.style.minHeight = `${clientHeight / zoom}px`;
@@ -475,8 +486,9 @@ function fitPage() {
     page.style.minHeight = '';
     page.style.transform = `translate(-50%, -50%) scale(${scale})`;
   }
-  // The phone column and the sheet draw some pages in different ways.
-  if (phone !== wasPhone && pages.length) show(current);
+  // The phone column and the sheet draw some pages in different ways, and a
+  // phone sizes its drawings to the screen.
+  if ((phone !== wasPhone || columnHeight !== wasHeight) && pages.length) show(current);
 }
 
 // The address holds the page number (#1 is the cover), so a reload keeps your place.

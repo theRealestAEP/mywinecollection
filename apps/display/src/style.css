@@ -604,25 +604,33 @@ a:focus-visible {
   box-shadow: none;
 }
 
-/* A wine's page opens like a title card: the name, then the portrait. The
-   printed fields and the rest follow. */
+/* A wine's page opens like a plate with its title: the name, centred over
+   the portrait. The printed fields and the rest follow. */
 .phone .entry {
   display: contents;
 }
 
 .phone .producer {
   order: 1;
-  margin: 32px 20px 0;
+  margin: 24px 20px 0;
+  text-align: center;
 }
 
 .phone .entry > .underline {
   order: 2;
+  align-self: center;
   margin: 2px 20px 4px;
 }
 
 .phone .cuvee {
   order: 3;
+  justify-content: center;
   margin: 0 20px;
+}
+
+.phone .cuvee .name {
+  flex: 0 1 auto;
+  text-align: center;
 }
 
 .phone .figure {
