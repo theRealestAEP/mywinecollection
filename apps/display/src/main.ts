@@ -386,6 +386,17 @@ const page = document.getElementById('page') as HTMLElement;
 // asks for less motion.
 const eink = document.documentElement.classList.contains('eink');
 const motion = !eink && matchMedia('(prefers-reduced-motion: no-preference)').matches;
+
+// The e-ink tablet on the wall stays awake while it shows the book, so that
+// it does not sleep and cover the page. The tablet lets go of the lock when
+// the book is hidden, so ask again when the book shows.
+if (eink && 'wakeLock' in navigator) {
+  const stayAwake = () => navigator.wakeLock.request('screen').catch(() => {});
+  stayAwake();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') stayAwake();
+  });
+}
 let book: Book;
 let pages: Page[] = [];
 let current = 0;

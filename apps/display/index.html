@@ -4,11 +4,33 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Wine Portraits</title>
+    <link rel="icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="theme-color" content="#fbfaf6" />
     <script>
       // On an e-ink screen, the link ends with &eink, and the page keeps still
       // (see style.css). This runs before the first paint, so the screen never
       // shows the dark desk.
       if (new URLSearchParams(location.search).has('eink')) document.documentElement.classList.add('eink');
+
+      // The book installs as an app. The manifest is made here, so that the
+      // app opens this same address, with its key.
+      {
+        const icon = (size, purpose) => ({ src: new URL(`/icon-${size}.png`, location.href).href, sizes: `${size}x${size}`, type: 'image/png', purpose });
+        const manifest = {
+          name: 'Wine Portraits',
+          short_name: 'Wine Portraits',
+          display: 'fullscreen',
+          background_color: '#fbfaf6',
+          theme_color: '#fbfaf6',
+          start_url: location.href.split('#')[0],
+          icons: [icon(192, 'any'), icon(512, 'any'), icon(512, 'maskable')],
+        };
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(manifest));
+        document.head.append(link);
+      }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
