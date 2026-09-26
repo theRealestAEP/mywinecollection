@@ -9,3 +9,6 @@ photos/
 
 # Your book's links. Each one holds an access key.
 links.txt
+
+# The signing key for the Android app (apps/launcher/build.sh makes it).
+apps/launcher/launcher.keystore

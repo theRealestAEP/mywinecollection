@@ -52,6 +52,7 @@ The book follows live data: a change in Convex shows on every open screen at onc
 | --- | --- |
 | `convex/` | The backend: the schema, the book query, and admin functions |
 | `apps/display/` | The book, for e-ink tablets and share links, and the Sommelier page |
+| `apps/launcher/` | Cellar, an Android app that shows the book on a wall tablet |
 | `shared/draw.ts` | The pen-and-ink drawing |
 | `shared/wines.schema.json` | The format of a collection file, for import, export and AI tools |
 | `seed/wines.json` | Ten sample wines |
@@ -144,6 +145,33 @@ The workflow in `.github/workflows/deploy.yml` deploys the backend and the site 
 | `CONVEX_DEPLOY_KEY` | The Convex dashboard: your project > Production > Settings > Generate Production Deploy Key |
 | `CLOUDFLARE_API_TOKEN` | The Cloudflare dashboard: My Profile > API Tokens > Create Token > the "Edit Cloudflare Workers" template |
 | `CLOUDFLARE_ACCOUNT_ID` | The output of `npx wrangler whoami` |
+
+## Put the book on a wall tablet
+
+`apps/launcher/` holds Cellar, a small Android app for a tablet on the wall. Cellar shows the book full screen and keeps the screen on. It can be the tablet's home app, so the tablet opens the book when it starts.
+
+1. Install a JDK and the Android SDK, with platform `android-35` and the build tools. Then build the app:
+
+   ```bash
+   apps/launcher/build.sh
+   ```
+
+   The first build makes a signing key, `apps/launcher/launcher.keystore`. Keep this file, because each update must have the same key. Git ignores it.
+
+2. On the tablet, turn on USB debugging. Connect the tablet to your computer, then install the app:
+
+   ```bash
+   adb install -r dist/cellar.apk
+   ```
+
+3. Open Cellar and paste the link to your book. On an e-ink tablet, the link ends with `&eink`. To type less, tap **Choose the link file** and pick a file that holds the link, such as a text file in Downloads.
+4. In the tablet's settings, make Cellar the default home app, for example in Settings > Apps > Default apps > Home app.
+
+If the tablet starts before its Wi-Fi connects, Cellar tries again every 3 seconds. To use another link, clear Cellar's storage in the tablet's settings.
+
+On a BOOX tablet, also do this:
+
+- BOOX freezes new apps, and a frozen app cannot open when the tablet starts. On the Apps screen, tap the snowflake icon, then turn off the switch next to Cellar.
 
 ## Admin commands
 
