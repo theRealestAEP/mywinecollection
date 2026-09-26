@@ -84,10 +84,10 @@ a:focus-visible {
 
 /* Boox tablets turn off Android's animations to spare the e-ink screen, so
    their browsers ask for reduced motion. The &eink link is the owner's choice
-   for the wall, so the lines boil there anyway, a little faster: an e-ink
-   screen drops the steps it cannot draw in time. */
+   for the wall, so the lines boil there anyway, but slower: on e-ink, each
+   step of the boil shows as a redraw of the drawing. */
 .eink .boil {
-  animation: boil 0.3s steps(1) infinite;
+  animation: boil 0.9s steps(1) infinite;
 }
 
 /* The lines keep still while a new page inks itself in, and its marks appear
