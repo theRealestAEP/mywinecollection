@@ -8,9 +8,9 @@
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="theme-color" content="#fbfaf6" />
     <script>
-      // On an e-ink screen, the link ends with &eink, and the page keeps still
-      // (see style.css). This runs before the first paint, so the screen never
-      // shows the dark desk.
+      // On an e-ink screen, the link ends with &eink: the page fills the screen
+      // with paper and turns instantly (see style.css). This runs before the
+      // first paint, so the screen never shows the dark desk.
       if (new URLSearchParams(location.search).has('eink')) document.documentElement.classList.add('eink');
 
       // The book installs as an app. The manifest is made here, so that the

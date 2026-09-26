@@ -27,8 +27,8 @@ The pages are made for e-ink tablets, and they also work on phones and computers
 - The page uses three inks that stay clear in greyscale.
 - On a phone, the page becomes one column of paper that you scroll. The wine's name and its portrait come first, at a size you can read.
 - On a phone or a computer, each new page inks itself in: its drawing appears stroke by stroke, outline first. Then the pen lines "boil": they wobble a little, as in hand-drawn animation.
-- On an e-ink tablet, add `&eink` to the end of the link. The page then keeps still and turns instantly, because motion makes an e-ink screen flicker.
-- The page also keeps still when the device asks for reduced motion.
+- On an e-ink tablet, add `&eink` to the end of the link. The page then fills the screen with paper and turns instantly, with no ink-in, because e-ink redraws slowly. The lines still boil; for the smoothest boil, set a fast refresh mode for the browser in the tablet's e-ink settings.
+- On other screens, the page keeps still when the device asks for reduced motion.
 
 ## How it works
 

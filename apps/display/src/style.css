@@ -51,8 +51,7 @@ body {
 }
 
 /* On an e-ink screen (a link that ends with &eink), the page fills the screen
-   with paper and keeps still: motion makes an e-ink screen flicker and leave
-   ghost images. */
+   with paper. */
 .eink,
 .eink body {
   background: var(--paper);
@@ -83,10 +82,16 @@ a:focus-visible {
   }
 }
 
-/* The lines keep still on an e-ink screen. They also keep still while a new
-   page inks itself in, and its marks appear one after another (see inkIn in
-   main.ts). */
-.eink .boil,
+/* Boox tablets turn off Android's animations to spare the e-ink screen, so
+   their browsers ask for reduced motion. The &eink link is the owner's choice
+   for the wall, so the lines boil there anyway, a little faster: an e-ink
+   screen drops the steps it cannot draw in time. */
+.eink .boil {
+  animation: boil 0.3s steps(1) infinite;
+}
+
+/* The lines keep still while a new page inks itself in, and its marks appear
+   one after another (see inkIn in main.ts). */
 .inking .boil {
   animation: none;
 }

@@ -382,8 +382,8 @@ function windowStatus(from: number, to: number, year: number) {
 // ---- Showing and turning pages ---------------------------------------------
 
 const page = document.getElementById('page') as HTMLElement;
-// An e-ink screen keeps still (see index.html), and so does a device that
-// asks for less motion.
+// On an e-ink screen (see index.html), and on a device that asks for less
+// motion, pages turn instantly, with no ink-in.
 const eink = document.documentElement.classList.contains('eink');
 const motion = !eink && matchMedia('(prefers-reduced-motion: no-preference)').matches;
 
