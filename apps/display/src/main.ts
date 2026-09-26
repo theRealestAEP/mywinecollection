@@ -513,6 +513,13 @@ function showMessage(text: string) {
   page.innerHTML = `<p class="error">${escapeHtml(text)}</p>`;
 }
 
+function openBook(collection: Collection) {
+  document.title = collection.title;
+  book = makeBook(collection);
+  pages = makePages(book);
+  show(pageFromAddress());
+}
+
 // Shrinks text that is too long for its box, one pixel at a time.
 // Handwriting reaches a few pixels past its line box, so a small overflow is allowed.
 function fitText() {
@@ -629,17 +636,28 @@ const key = new URLSearchParams(location.search).get('key');
 if (!key) {
   showMessage('This page needs a key in its address, like …/?key=… Ask the owner of the book for a link.');
 } else {
+  // The device keeps a copy of the book, so that the book shows at once, and
+  // with no internet. The live book replaces the copy when Convex connects.
+  const saved = `book:${key}`;
   const client = new ConvexClient(import.meta.env.VITE_CONVEX_URL);
   client.onUpdate(
     api.book.get,
     { key },
     (collection) => {
-      if (!collection) return showMessage('The key in this link does not open a book. It may be revoked. Ask the owner for a new link.');
-      document.title = collection.title;
-      book = makeBook(collection);
-      pages = makePages(book);
-      show(pageFromAddress());
+      if (!collection) {
+        localStorage.removeItem(saved);
+        return showMessage('The key in this link does not open a book. It may be revoked. Ask the owner for a new link.');
+      }
+      localStorage.setItem(saved, JSON.stringify(collection));
+      openBook(collection);
     },
     (error) => showMessage(`The book could not load: ${error.message}`)
   );
+  // The copy shows after the live book is asked for, so a copy from an older
+  // version of the site cannot stop the live book.
+  const copy = localStorage.getItem(saved);
+  if (copy) openBook(JSON.parse(copy));
 }
+
+// The site's files and fonts stay on the device too (see public/sw.js).
+if (import.meta.env.PROD) navigator.serviceWorker.register('/sw.js');
