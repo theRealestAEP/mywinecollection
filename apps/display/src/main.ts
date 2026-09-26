@@ -650,6 +650,7 @@ if (!key) {
       }
       localStorage.setItem(saved, JSON.stringify(collection));
       openBook(collection);
+      keepFiles();
     },
     (error) => showMessage(`The book could not load: ${error.message}`)
   );
@@ -659,5 +660,22 @@ if (!key) {
   if (copy) openBook(JSON.parse(copy));
 }
 
-// The site's files and fonts stay on the device too (see public/sw.js).
+// The site's files and fonts stay on the device too: public/sw.js keeps each
+// file that it fetches. On a first visit, the page and its files load before
+// the worker starts, so when the live book first shows, the page adds them.
 if (import.meta.env.PROD) navigator.serviceWorker.register('/sw.js');
+let filesKept = false;
+
+async function keepFiles() {
+  if (!import.meta.env.PROD || filesKept) return;
+  filesKept = true;
+  await document.fonts.ready;
+  const files = [location.href, ...performance.getEntriesByType('resource').map((entry) => entry.name)];
+  const cache = await caches.open('book');
+  await cache.addAll(
+    files.filter((file) => {
+      const { origin, hostname } = new URL(file);
+      return origin === location.origin || hostname === 'fonts.googleapis.com' || hostname === 'fonts.gstatic.com';
+    })
+  );
+}

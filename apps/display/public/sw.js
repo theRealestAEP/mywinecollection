@@ -22,7 +22,9 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       },
-      async () => (await caches.match(request)) ?? Response.error()
+      // Match on the address alone. Servers vary these files on request
+      // headers, such as Origin, that do not change what the files hold.
+      async () => (await caches.match(request, { ignoreVary: true })) ?? Response.error()
     )
   );
 });
