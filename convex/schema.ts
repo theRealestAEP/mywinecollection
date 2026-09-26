@@ -1,8 +1,8 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-// One Convex deployment holds one book: its settings, its wines, and the
-// keys that let screens read it.
+// One Convex deployment holds one book: its settings, its wines, the log of
+// bottles opened, the talk with the sommelier, and the keys that open it.
 
 const level = v.optional(v.number()); // 1 (low) to 5 (high)
 
@@ -63,11 +63,42 @@ export default defineSchema({
   // Wine in the wild: wines you tried somewhere else.
   wild: defineTable(wildFields),
 
-  // A key lets one screen read the book, and nothing more. A "display" is a
-  // tablet at home; a "share" is a view-only link for friends. The database
-  // keeps a hash of each key, never the key itself.
+  // The drinking log: one entry for each bottle opened from the cellar, and
+  // for each wine tried somewhere else. The date is YYYY-MM-DD.
+  drinks: defineTable({
+    wine: v.union(v.id('wines'), v.id('wild')),
+    date: v.string(),
+    where: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  }),
+
+  // The talk with the sommelier, the agent that keeps the book. The owner
+  // sends text, photos, videos and voice notes; the sommelier replies. An
+  // owner's message waits until the sommelier reads it. The date is the
+  // owner's own date when they sent it, YYYY-MM-DD.
+  messages: defineTable({
+    from: v.union(v.literal('owner'), v.literal('sommelier')),
+    text: v.string(),
+    date: v.optional(v.string()),
+    files: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id('_storage'),
+          kind: v.union(v.literal('image'), v.literal('audio'), v.literal('video')),
+        }),
+      ),
+    ),
+    // What Deepgram heard in the voice notes and videos.
+    transcript: v.optional(v.string()),
+    status: v.optional(v.union(v.literal('waiting'), v.literal('reading'), v.literal('done'), v.literal('failed'))),
+  }).index('by_status', ['status']),
+
+  // A key opens the book. A "display" is a tablet at home and a "share" is a
+  // view-only link for friends; these can only read the book. An "owner" key
+  // opens the sommelier, which can change the book. The database keeps a
+  // hash of each key, never the key itself.
   accessKeys: defineTable({
-    kind: v.union(v.literal('display'), v.literal('share')),
+    kind: v.union(v.literal('display'), v.literal('share'), v.literal('owner')),
     name: v.string(),
     keyHash: v.string(),
   }).index('by_key_hash', ['keyHash']),

@@ -10,8 +10,10 @@
 
 import type * as accessKeys from "../accessKeys.js";
 import type * as book from "../book.js";
+import type * as journal from "../journal.js";
 import type * as keys from "../keys.js";
 import type * as settings from "../settings.js";
+import type * as sommelier from "../sommelier.js";
 import type * as wild from "../wild.js";
 import type * as wines from "../wines.js";
 
@@ -24,8 +26,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   accessKeys: typeof accessKeys;
   book: typeof book;
+  journal: typeof journal;
   keys: typeof keys;
   settings: typeof settings;
+  sommelier: typeof sommelier;
   wild: typeof wild;
   wines: typeof wines;
 }>;

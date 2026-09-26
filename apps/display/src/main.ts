@@ -1,6 +1,7 @@
 // WinePortrait display: draws the book and turns its pages.
 //
-// The book has a cover, the index, then one page for each wine: the wines in
+// The book has a cover, the index, the consumed log (each bottle opened, and
+// each wine tried somewhere else), then one page for each wine: the wines in
 // the cellar, then the archive (wines with no bottles left), then the wines
 // in the wild (tried somewhere else). Your own notes about a wine take the
 // place of the written sections about it.
@@ -37,6 +38,7 @@ type Collection = NonNullable<FunctionReturnType<typeof api.book.get>>;
 type CellarWine = Collection['wines'][number];
 type WildWine = Collection['wild'][number];
 type Wine = CellarWine | WildWine;
+type Drink = Collection['drinks'][number];
 type Page = () => string;
 type IndexRow = Wine | { heading: string; column: string };
 
@@ -47,7 +49,12 @@ interface Book {
   wild: WildWine[];
   entries: Wine[];
   indexPages: IndexRow[][];
+  drinks: Drink[];
+  consumedPages: Drink[][];
+  // The addresses of the cover's three buttons.
+  shelves: { cellar: string; consumed: string; archive: string };
   addressOf: (wine: Wine) => string;
+  wineOf: (drink: Drink) => Wine | undefined;
   find: (query: string) => IndexRow[];
 }
 
@@ -79,14 +86,21 @@ function inCellar(wine: Wine): wine is CellarWine {
 }
 
 // Sorts the wines into the sections of the book, and lays out the index.
-function makeBook({ title, wines, wild }: Collection): Book {
+function makeBook({ title, wines, wild, drinks }: Collection): Book {
   const cellar = wines.filter((wine) => wine.quantity);
   const archive = wines.filter((wine) => !wine.quantity);
   const entries: Wine[] = [...cellar, ...archive, ...wild];
   const rows = indexRows(cellar, archive, wild);
   const indexPages: IndexRow[][] = [];
   for (let i = 0; i < rows.length; i += INDEX_ROWS_PER_PAGE) indexPages.push(rows.slice(i, i + INDEX_ROWS_PER_PAGE));
-  const firstEntryPage = 1 + indexPages.length;
+  // The consumed log has at least one page, so that its button leads somewhere.
+  const consumedPages: Drink[][] = [];
+  for (let i = 0; i < drinks.length; i += INDEX_ROWS_PER_PAGE) consumedPages.push(drinks.slice(i, i + INDEX_ROWS_PER_PAGE));
+  if (!consumedPages.length) consumedPages.push([]);
+  const firstConsumedPage = 1 + indexPages.length;
+  const firstEntryPage = firstConsumedPage + consumedPages.length;
+  const archiveRow = rows.findIndex((row) => 'heading' in row && row.heading === 'Archive');
+  const byId = new Map<string, Wine>(entries.map((wine) => [wine._id, wine]));
   const texts = new Map(entries.map((wine) => [wine, plain(searchText(wine))]));
   return {
     title,
@@ -95,8 +109,16 @@ function makeBook({ title, wines, wild }: Collection): Book {
     wild,
     entries,
     indexPages,
+    drinks,
+    consumedPages,
+    shelves: {
+      cellar: '#2',
+      consumed: `#${firstConsumedPage + 1}`,
+      archive: `#${2 + Math.floor(Math.max(archiveRow, 0) / INDEX_ROWS_PER_PAGE)}`,
+    },
     // The address of a wine's page, for example '#5'.
     addressOf: (wine) => `#${firstEntryPage + entries.indexOf(wine) + 1}`,
+    wineOf: (drink) => byId.get(drink.wine),
     // A search finds the wines that have every word of the query, as index rows.
     find: (query) => {
       const words = plain(query).split(/\s+/).filter(Boolean);
@@ -111,6 +133,7 @@ function makePages(book: Book): Page[] {
   return [
     () => coverPage(book),
     ...book.indexPages.map((rows, i) => () => indexPage(book, rows, i === 0)),
+    ...book.consumedPages.map((drinks) => () => consumedPage(book, drinks)),
     ...book.entries.map((wine, i) => () => entryPage(wine, i)),
   ];
 }
@@ -150,7 +173,7 @@ function plain(text: string) {
 
 // ---- Pages -----------------------------------------------------------------
 
-function coverPage({ title, cellar, archive, wild, addressOf }: Book): string {
+function coverPage({ title, cellar, archive, wild, drinks, shelves, addressOf }: Book): string {
   // A different bottle each time the cover shows: from the cellar, or else
   // from the archive, or else from the wines in the wild.
   const pool: Wine[] = [cellar, archive, wild].find((list) => list.length) ?? [];
@@ -160,9 +183,10 @@ function coverPage({ title, cellar, archive, wild, addressOf }: Book): string {
     const vintage = wine.vintage || 'NV';
     // On the sheet, the drawing spans the whole page. On a phone, it is a
     // block of its own in the column, small enough that the title, the
-    // bottle and its caption fit on the first screen, above the bar at the
-    // foot. The rest of that screen takes about 390 column units.
-    const room = phone ? Math.max(260, Math.min(400, columnHeight - 390)) : 400;
+    // bottle, its caption and the three buttons fit on the first screen,
+    // above the bar at the foot. The rest of that screen takes about 560
+    // column units.
+    const room = phone ? Math.max(200, Math.min(400, columnHeight - 560)) : 400;
     const [width, height, cx, ground] = phone ? [COLUMN, room + 100, COLUMN / 2, room + 50] : [750, 1000, 375, 640];
     const bottle = drawBottle({
       form: wine.bottle,
@@ -190,11 +214,11 @@ function coverPage({ title, cellar, archive, wild, addressOf }: Book): string {
       <h1>${escapeHtml(title)}</h1>
       <p class="cover-subtitle">the cellar, bottle by bottle</p>
       <div class="figure">${plate}</div>
-      <div class="fields">
-        <p class="field"><i>In the cellar</i><b>${plural(bottles, 'bottle')} of ${plural(cellar.length, 'wine')}</b></p>
-        <p class="field"><i>Archive</i><b>${plural(archive.length, 'wine')}</b></p>
-        <p class="field"><i>In the wild</i><b>${plural(wild.length, 'wine')}</b></p>
-      </div>
+      <nav class="fields shelves">
+        <a class="field" href="${shelves.cellar}"><i>Cellar</i><b>${plural(bottles, 'bottle')} of ${plural(cellar.length, 'wine')}</b></a>
+        <a class="field" href="${shelves.consumed}"><i>Consumed</i><b>${drinks.length ? `${drinks.length} in the log` : 'nothing yet'}</b></a>
+        <a class="field" href="${shelves.archive}"><i>Archive</i><b>${plural(archive.length, 'wine')}</b></a>
+      </nav>
       <p class="hint">${hint}</p>
     </div>`;
 }
@@ -230,6 +254,33 @@ function indexItems({ entries, addressOf }: Book, rows: IndexRow[]): string {
       </a></li>`;
   });
   return items.join('');
+}
+
+// The consumed log, newest first: one line for each bottle opened, and for
+// each wine tried somewhere else. Each line leads to the wine's page.
+function consumedPage({ wineOf, addressOf }: Book, drinks: Drink[]): string {
+  const rand = seededRandom('consumed');
+  const rows = drinks.map((drink) => {
+    const wine = wineOf(drink);
+    if (!wine) return '';
+    return `
+      <li><a class="index-row log-row" href="${addressOf(wine)}">
+        <span>${escapeHtml(formatDate(drink.date))}</span>
+        <span>${escapeHtml(wine.producer)}, ${escapeHtml(wine.name)}</span>
+        <span>${wine.vintage || 'NV'}</span>
+        <span>${escapeHtml(drink.where ?? '')}</span>
+        ${drink.notes ? `<span class="log-notes">${escapeHtml(drink.notes)}</span>` : ''}
+      </a></li>`;
+  });
+  return `
+    <div class="contents">
+      <h1>Consumed</h1>
+      ${drawUnderline(300, rand)}
+      <ol class="index">
+        <li class="index-head log-row"><span>Date</span><span>Wine</span><span>Vintage</span><span>Where</span></li>
+        ${rows.join('') || '<li class="index-note">Nothing in the log yet.</li>'}
+      </ol>
+    </div>`;
 }
 
 // What the search finds, on one index page.

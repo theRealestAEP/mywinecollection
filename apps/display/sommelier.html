@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sommelier</title>
+    <link rel="icon" href="/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="theme-color" content="#fbfaf6" />
+    <script>
+      // The Sommelier installs as an app. The manifest is made here, so that
+      // the app opens this same address, with its key.
+      {
+        const icon = (size, purpose) => ({ src: new URL(`/icon-${size}.png`, location.href).href, sizes: `${size}x${size}`, type: 'image/png', purpose });
+        const manifest = {
+          name: 'Sommelier',
+          short_name: 'Sommelier',
+          display: 'standalone',
+          background_color: '#fbfaf6',
+          theme_color: '#fbfaf6',
+          start_url: location.href.split('#')[0],
+          icons: [icon(192, 'any'), icon(512, 'any'), icon(512, 'maskable')],
+        };
+        const link = document.createElement('link');
+        link.rel = 'manifest';
+        link.href = 'data:application/manifest+json,' + encodeURIComponent(JSON.stringify(manifest));
+        document.head.append(link);
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap"
+    />
+  </head>
+  <body>
+    <main id="app"></main>
+    <script type="module" src="/src/sommelier.ts"></script>
+  </body>
+</html>

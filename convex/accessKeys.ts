@@ -7,8 +7,9 @@ import { hashKey } from './keys';
 // open the book at https://…/?key=<key>.
 //   npx convex run accessKeys:create '{"kind": "display", "name": "Dining room"}'
 //   npx convex run accessKeys:create '{"kind": "share", "name": "For Sam"}'
+//   npx convex run accessKeys:create '{"kind": "owner", "name": "My phone"}'
 
-const kind = v.union(v.literal('display'), v.literal('share'));
+const kind = v.union(v.literal('display'), v.literal('share'), v.literal('owner'));
 
 export const create = internalAction({
   args: { kind, name: v.string() },

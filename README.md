@@ -12,13 +12,15 @@ Your own notes about a wine take the place of the written sections about it.
 
 The index has a search box. A search finds the wines that have every word you type, in any field or in your notes. It ignores case and accents, so "rose" finds "Rosé".
 
-The book has three sections:
+The cover has three buttons:
 
-| Section | Holds |
+| Button | Opens |
 | --- | --- |
-| In the cellar | The wines you have bottles of |
-| Archive | Every wine you logged in the cellar that has no bottles left |
-| In the wild | Wines you tried somewhere else, with when and where |
+| Cellar | The index: the wines you have bottles of, then the archive, then the wines you tried somewhere else |
+| Consumed | The drinking log: each bottle you opened, and each wine you tried somewhere else, with the date |
+| Archive | The wines you logged in the cellar that have no bottles left |
+
+On your phone, the Sommelier page keeps the book up to date. Send it a photo, a video, a voice note or a few words about a wine, and an AI agent adds the wine or logs the bottle you opened. When it needs to know more, it asks.
 
 The pages are made for e-ink tablets, and they also work on phones and computers:
 
@@ -32,14 +34,15 @@ The pages are made for e-ink tablets, and they also work on phones and computers
 
 ## How it works
 
-Each person runs their own copy. One Convex deployment holds one book: its title, its wines and its access keys. The site is static, and Cloudflare can host it for free.
+Each person runs their own copy. One Convex deployment holds one book: its title, its wines, the drinking log, the talk with the sommelier, and its access keys. The site is static, and Cloudflare can host it for free.
 
-A screen opens the book with an access key in its address (`…/?key=…`). A key can only read the book. There are two kinds:
+A screen opens the book with an access key in its address (`…/?key=…`). There are three kinds:
 
 | Kind | For | Notes |
 | --- | --- | --- |
-| `display` | A tablet in your home | |
-| `share` | A view-only link for friends | You can revoke it at any time. |
+| `display` | A tablet in your home | It can only read the book. |
+| `share` | A view-only link for friends | It can only read the book. You can revoke it at any time. |
+| `owner` | The Sommelier page on your phone | It can change the book, through the sommelier. |
 
 The book follows live data: a change in Convex shows on every open screen at once.
 
@@ -48,7 +51,7 @@ The book follows live data: a change in Convex shows on every open screen at onc
 | Folder | What it holds |
 | --- | --- |
 | `convex/` | The backend: the schema, the book query, and admin functions |
-| `apps/display/` | The book, for e-ink tablets and share links |
+| `apps/display/` | The book, for e-ink tablets and share links, and the Sommelier page |
 | `shared/draw.ts` | The pen-and-ink drawing |
 | `shared/wines.schema.json` | The format of a collection file, for import, export and AI tools |
 | `seed/wines.json` | Ten sample wines |
@@ -161,6 +164,7 @@ Run these in the project folder. JSON arguments go in single quotes. These comma
 | Change a wine in the wild | `npx convex run wild:update '{"wildId": "…", "changes": {…}}'` |
 | Make a display key | `npx convex run accessKeys:create '{"kind": "display", "name": "Dining room"}'` |
 | Make a share link key | `npx convex run accessKeys:create '{"kind": "share", "name": "For Sam"}'` |
+| Make a key for the Sommelier | `npx convex run accessKeys:create '{"kind": "owner", "name": "My phone"}'` |
 | List the keys | `npx convex run accessKeys:list` |
 | Revoke a key | `npx convex run accessKeys:revoke '{"accessKeyId": "…"}'` |
 
@@ -168,9 +172,28 @@ Run these in the project folder. JSON arguments go in single quotes. These comma
 
 A wine with no bottles left stays in the book, in the archive. To write your own notes about a wine, set its `notes`, for example `{"changes": {"notes": "Opened for Sam’s birthday.\nStill young."}}`. Each `\n` starts a new line.
 
-## Add a wine from a photo
+## The Sommelier
 
-Until there is a phone app, Claude Code adds wines:
+The Sommelier is a page for your phone. Send it a photo or a video of a bottle, a voice note, or a few words. The sommelier, an AI agent, reads the label and updates the book: it adds bottles to the cellar, logs a bottle you opened, or logs a wine you tried somewhere else. A wine with no bottles left moves to the archive. When the sommelier needs to know more, it asks, for example: "Is this for the cellar, or did you try it somewhere?"
+
+The sommelier runs in Convex (`convex/sommelier.ts`). Claude reads the photos and does the thinking, and Deepgram turns the speech in voice notes and videos into text. Set their keys as Convex environment variables. Each command asks for the value:
+
+```bash
+npx convex env set ANTHROPIC_API_KEY --prod
+npx convex env set DEEPGRAM_API_KEY --prod
+```
+
+Leave out `--prod` to set them on your dev deployment. Then make an owner key:
+
+```bash
+npx convex run --prod accessKeys:create '{"kind": "owner", "name": "My phone"}'
+```
+
+Open `https://<the Worker's address>/sommelier.html?key=<key>` on your phone. On an iPhone, tap Share, then Add to Home Screen, to keep it as an app.
+
+## Add a wine from Claude Code
+
+Claude Code can also add wines, from this folder:
 
 1. Take a photo of the bottle, with the front label facing the camera.
 2. Put the photo in `inbox/`, or attach it to a message in Claude Code in this folder.

@@ -432,6 +432,7 @@ a:focus-visible {
 }
 
 .cover h1 {
+  margin: 0 40px;
   overflow: hidden;
   white-space: nowrap;
   font-size: 92px;
@@ -487,6 +488,24 @@ a:focus-visible {
 
 .cover .field b {
   flex: 1;
+}
+
+/* The cover's three buttons: the cellar, the consumed log, and the archive */
+.shelves .field {
+  padding: 2px 14px 2px 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+
+.shelves .field b {
+  border-bottom: 0;
+}
+
+.shelves .field::after {
+  content: '›';
+  font-size: 28px;
+  line-height: 30px;
+  color: var(--form);
 }
 
 .hint {
@@ -584,6 +603,20 @@ a:focus-visible {
 
 .index-row span:first-child {
   color: var(--form);
+}
+
+/* The consumed log: the date comes first, and the notes on the bottle
+   follow on a line of their own. */
+.log-row {
+  grid-template-columns: 132px 1fr 56px 132px;
+}
+
+.index-row .log-notes {
+  grid-column: 2 / -1;
+  font-size: 20px;
+  line-height: 28px;
+  color: var(--form);
+  white-space: normal;
 }
 
 /* ---- Phone ------------------------------------------------------------------
@@ -738,6 +771,14 @@ a:focus-visible {
 .phone .index-row {
   grid-template-columns: 22px 1fr 44px 86px;
   column-gap: 8px;
+}
+
+.phone .log-row {
+  grid-template-columns: 118px 1fr 44px;
+}
+
+.phone .log-row span:nth-child(4) {
+  display: none;
 }
 
 /* Long names wrap onto a second line. */
