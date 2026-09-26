@@ -397,6 +397,15 @@ if (eink && 'wakeLock' in navigator) {
     if (document.visibilityState === 'visible') stayAwake();
   });
 }
+
+// A browser shows its own bars above the page. On the e-ink tablet, the first
+// tap puts the book in full screen, without them: a browser allows full
+// screen only after a tap.
+if (eink) {
+  addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+  });
+}
 let book: Book;
 let pages: Page[] = [];
 let current = 0;
