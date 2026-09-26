@@ -189,7 +189,7 @@ Leave out `--prod` to set them on your dev deployment. Then make an owner key:
 npx convex run --prod accessKeys:create '{"kind": "owner", "name": "My phone"}'
 ```
 
-Open `https://<the Worker's address>/sommelier.html?key=<key>` on your phone. On an iPhone, tap Share, then Add to Home Screen, to keep it as an app.
+Open `https://<the Worker's address>/sommelier?key=<key>` on your phone. On an iPhone, tap Share, then Add to Home Screen, to keep it as an app.
 
 ## Add a wine from Claude Code
 
