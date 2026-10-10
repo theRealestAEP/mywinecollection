@@ -70,7 +70,7 @@ export const sendLink = action({
     });
     if (!response.ok) {
       console.error(`Resend could not send the email: ${response.status} ${await response.text()}`);
-      return { problem: 'The email did not go out. Try again in a minute.' };
+      return { problem: 'The email did not go out. The Convex logs say why.' };
     }
     return { code };
   },
