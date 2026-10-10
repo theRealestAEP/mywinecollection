@@ -5,16 +5,20 @@
 // the cellar, then the archive (wines with no bottles left), then the wines
 // in the wild (tried somewhere else). Your own notes about a wine take the
 // place of the written sections about it.
-// The page reads the book live from Convex, with the key in its address
-// (?key=…), so a change shows at once. On the sheet, tap the right or left
+// The page reads the book live from Convex, so a change shows at once. A
+// screen with a key in its address (?key=…) shows that key's cellar,
+// read-only: the tablet on the wall, or a link for friends. Without a key,
+// the page is the app: the owner signs in with their email, and the welcome
+// page lists their cellars (?cellar=…) and leads to the Sommelier. On the sheet, tap the right or left
 // third of the screen to turn the page, or the middle third for the index.
 // On a phone, the page is one column that scrolls, with a bar of buttons at
 // the foot of the screen. The ‹ and › buttons, a swipe, and the arrow and
 // page keys also turn the page.
 
 import { ConvexClient } from 'convex/browser';
-import type { FunctionReturnType } from 'convex/server';
+import type { FunctionArgs, FunctionReference, FunctionReturnType } from 'convex/server';
 import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 import {
   BOIL_FILTERS,
   BOTTLES,
@@ -35,15 +39,20 @@ import {
 import './style.css';
 
 type Collection = NonNullable<FunctionReturnType<typeof api.book.get>>;
+type Home = NonNullable<FunctionReturnType<typeof api.cellars.home>>;
 type CellarWine = Collection['wines'][number];
 type WildWine = Collection['wild'][number];
 type Wine = CellarWine | WildWine;
+// What a cover needs to draw a bottle.
+type Plate = Pick<Wine, 'producer' | 'name' | 'vintage' | 'bottle' | 'type'>;
 type Drink = Collection['drinks'][number];
 type Page = () => string;
 type IndexRow = Wine | { heading: string; column: string };
 
 interface Book {
   title: string;
+  // Signed in as the cellar's owner, rather than opened with a key.
+  owner: boolean;
   cellar: CellarWine[];
   archive: CellarWine[];
   wild: WildWine[];
@@ -86,7 +95,7 @@ function inCellar(wine: Wine): wine is CellarWine {
 }
 
 // Sorts the wines into the sections of the book, and lays out the index.
-function makeBook({ title, wines, wild, drinks }: Collection): Book {
+function makeBook({ title, owner, wines, wild, drinks }: Collection): Book {
   const cellar = wines.filter((wine) => wine.quantity);
   const archive = wines.filter((wine) => !wine.quantity);
   const entries: Wine[] = [...cellar, ...archive, ...wild];
@@ -104,6 +113,7 @@ function makeBook({ title, wines, wild, drinks }: Collection): Book {
   const texts = new Map(entries.map((wine) => [wine, plain(searchText(wine))]));
   return {
     title,
+    owner,
     cellar,
     archive,
     wild,
@@ -173,47 +183,50 @@ function plain(text: string) {
 
 // ---- Pages -----------------------------------------------------------------
 
-function coverPage({ title, cellar, archive, wild, drinks, shelves, addressOf }: Book): string {
+// A bottle drawn large, with its caption: the plate on a cover. With an
+// address, the plate leads to the wine's page. The sign-in pages' bottle has
+// no caption.
+function plateOf(wine: Plate, address?: string): string {
+  const vintage = wine.vintage || 'NV';
+  // On the sheet, the drawing spans the whole page. On a phone, it is a
+  // block of its own in the column, small enough that the title, the
+  // bottle, its caption and the buttons fit on the first screen, above the
+  // bar at the foot. The rest of that screen takes about 560 column units.
+  const room = phone ? Math.max(200, Math.min(400, columnHeight - 560)) : 400;
+  const [width, height, cx, ground] = phone ? [COLUMN, room + 100, COLUMN / 2, room + 50] : [750, 1000, 375, 640];
+  const bottle = drawBottle({
+    form: wine.bottle,
+    darkness: GLASS_DARKNESS[wine.type],
+    label: { producer: wine.producer, name: wine.name, vintage },
+    cx,
+    ground,
+    scale: Math.min(13, room / BOTTLES[wine.bottle].height),
+    rand: seededRandom(`${wine.producer} ${wine.name} ${wine.vintage}`),
+    id: 'cover',
+  });
+  const caption = wine === JOURNAL ? '' : `<span class="plate-caption">Plate I. ${escapeHtml(wine.producer)}, ${escapeHtml(wine.name)}, ${vintage}.</span>`;
+  return `
+    ${svg(width, height, bottle.marks, 'plate', bottle.words)}
+    ${address ? `<a class="feature" href="${address}">${caption}</a>` : `<p class="feature">${caption}</p>`}`;
+}
+
+function coverPage({ title, owner, cellar, archive, wild, drinks, shelves, addressOf }: Book): string {
   // A different bottle each time the cover shows: from the cellar, or else
   // from the archive, or else from the wines in the wild.
   const pool: Wine[] = [cellar, archive, wild].find((list) => list.length) ?? [];
   const wine = pool[Math.floor(Math.random() * pool.length)];
-  let plate = '<p class="empty">No wines yet. Add your first bottle, and it shows here.</p>';
-  if (wine) {
-    const vintage = wine.vintage || 'NV';
-    // On the sheet, the drawing spans the whole page. On a phone, it is a
-    // block of its own in the column, small enough that the title, the
-    // bottle, its caption and the three buttons fit on the first screen,
-    // above the bar at the foot. The rest of that screen takes about 560
-    // column units.
-    const room = phone ? Math.max(200, Math.min(400, columnHeight - 560)) : 400;
-    const [width, height, cx, ground] = phone ? [COLUMN, room + 100, COLUMN / 2, room + 50] : [750, 1000, 375, 640];
-    const bottle = drawBottle({
-      form: wine.bottle,
-      darkness: GLASS_DARKNESS[wine.type],
-      label: { producer: wine.producer, name: wine.name, vintage },
-      cx,
-      ground,
-      scale: Math.min(13, room / BOTTLES[wine.bottle].height),
-      rand: seededRandom(`${wine.producer} ${wine.name} ${wine.vintage}`),
-      id: 'cover',
-    });
-    plate = `
-      ${svg(width, height, bottle.marks, 'plate', bottle.words)}
-      <a class="feature" href="${addressOf(wine)}">
-        <span class="plate-caption">Plate I. ${escapeHtml(wine.producer)}, ${escapeHtml(wine.name)}, ${vintage}.</span>
-      </a>`;
-  }
   const bottles = cellar.reduce((sum, each) => sum + each.quantity, 0);
   const hint = phone
     ? 'Tap the bottle to open its page. Swipe to turn the page.'
     : 'Tap the bottle to open its page. Tap the right edge to turn the page, or the middle to search.';
+  // The owner's way back to the welcome page and their other cellars.
+  const volume = owner ? '<a class="cover-volume" href="/">‹ All cellars</a>' : '<p class="cover-volume">Vol. I</p>';
   return `
     <div class="cover">
-      <p class="cover-volume">Vol. I</p>
+      ${volume}
       <h1>${escapeHtml(title)}</h1>
       <p class="cover-subtitle">the cellar, bottle by bottle</p>
-      <div class="figure">${plate}</div>
+      <div class="figure">${wine ? plateOf(wine, addressOf(wine)) : '<p class="empty">No wines yet. Add your first bottle, and it shows here.</p>'}</div>
       <nav class="fields shelves">
         <a class="field" href="${shelves.cellar}"><i>Cellar</i><b>${plural(bottles, 'bottle')} of ${plural(cellar.length, 'wine')}</b></a>
         <a class="field" href="${shelves.consumed}"><i>Consumed</i><b>${drinks.length ? `${drinks.length} in the log` : 'nothing yet'}</b></a>
@@ -430,6 +443,120 @@ function windowStatus(from: number, to: number, year: number) {
   return `Ready now. Best by ${to}.`;
 }
 
+// ---- The app's own screens ---------------------------------------------------
+
+// The bottle on the sign-in pages.
+const JOURNAL: Plate = { producer: 'Wine', name: 'Journal', vintage: THIS_YEAR, bottle: 'bordeaux', type: 'red' };
+
+// "alex.pickett@example.com" is Alex.
+function nameOf(email: string) {
+  const [first] = email.split(/[@._+-]/);
+  return first.charAt(0).toUpperCase() + first.slice(1);
+}
+
+// A cover with a title, a line under it, a drawing, and then the screen's
+// own fields and words.
+function coverScreen(title: string, subtitle: string, plate: Plate | undefined, fields: string, hint = ''): string {
+  return `
+    <div class="cover">
+      <p class="cover-volume">Wine Journal</p>
+      <h1>${escapeHtml(title)}</h1>
+      <p class="cover-subtitle">${escapeHtml(subtitle)}</p>
+      <div class="figure">${plate ? plateOf(plate) : ''}</div>
+      <div class="fields shelves">${fields}</div>
+      <p class="hint">${hint}</p>
+    </div>`;
+}
+
+function showScreen(html: string) {
+  pages = [];
+  page.innerHTML = html;
+  fitText();
+  document.fonts.ready.then(fitText);
+}
+
+// The welcome page: a bottle from one of the cellars, a button for each
+// cellar, and the way to the Sommelier.
+function showHome({ email, cellars, plates }: Home) {
+  document.title = 'Wine Journal';
+  const shelves = cellars.map(
+    (cellar) =>
+      `<a class="field" href="/?cellar=${cellar._id}"><i>Cellar</i><b>${escapeHtml(cellar.title)}, ${plural(cellar.bottles, 'bottle')}</b></a>`,
+  );
+  shelves.push('<a class="field" href="/sommelier"><i>Sommelier</i><b>add, log or ask about a wine</b></a>');
+  const subtitle = cellars.length ? 'choose a cellar' : 'ask the sommelier to start your first cellar';
+  const plate = plates[Math.floor(Math.random() * plates.length)] ?? JOURNAL;
+  showScreen(coverScreen(`Welcome, ${nameOf(email)}`, subtitle, plate, shelves.join(''), '<button type="button" class="quiet" data-sign-out>Sign out</button>'));
+}
+
+// Sign in with an email. The device makes its own session secret; the link
+// in the email signs it in, wherever the link is opened (see convex/auth.ts).
+function showSignIn(problem = '') {
+  const fields = `
+    <form class="sign-in">
+      <label class="field"><i>Email</i><input type="email" name="email" autocomplete="email" required /></label>
+      <button class="field"><i></i><b>Send me a link</b></button>
+    </form>
+    ${problem ? `<p class="say">${escapeHtml(problem)}</p>` : ''}`;
+  showScreen(coverScreen('Welcome', 'sign in with your email', JOURNAL, fields));
+  page.querySelector('form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const email = new FormData(event.target as HTMLFormElement).get('email') as string;
+    const session = randomSecret();
+    const result = await client.action(api.auth.sendLink, { email, session });
+    if ('problem' in result) return showSignIn(result.problem);
+    const waiting = { email, code: result.code, session };
+    localStorage.setItem(SIGNING_IN, JSON.stringify(waiting));
+    showWaiting(waiting);
+  });
+}
+
+// Waits for the link. When it is opened, the session works, and the welcome
+// page shows.
+function showWaiting({ email, code, session }: { email: string; code: string; session: string }) {
+  const fields = `
+    <p class="say">We sent a link to ${escapeHtml(email)}. Open it on this phone or on any other device. Its page shows the number <b>${code}</b>, and this screen then signs in.</p>
+    <button type="button" class="quiet" data-start-over>Use another email</button>`;
+  showScreen(coverScreen('Check your email', 'a link is on its way', JOURNAL, fields));
+  client.onUpdate(api.cellars.home, { session }, (home) => {
+    if (!home) return;
+    localStorage.setItem(SESSION, session);
+    localStorage.removeItem(SIGNING_IN);
+    location.replace('/');
+  });
+}
+
+// The page that the email's link opens. It signs in the device that asked
+// for the link, after the person checks the number on that device.
+async function showApprove(link: string) {
+  const login = await client.query(api.auth.login, { link });
+  if (!login) {
+    return showScreen(coverScreen('Sign in', 'this link no longer works', JOURNAL, '<p class="say">The link was used, or it is too old. Ask for a new one on your device.</p>'));
+  }
+  const fields = `
+    <p class="say">Your device shows a number. If it is <b>${login.code}</b>, sign it in.</p>
+    <button type="button" class="field" data-approve><i></i><b>Sign in my device</b></button>`;
+  showScreen(coverScreen('Sign in', login.email, JOURNAL, fields));
+  page.querySelector('[data-approve]')?.addEventListener('click', async () => {
+    const done = await client.mutation(api.auth.approve, { link });
+    const text = done ? 'Your device is signed in. You can close this page.' : 'The link was used, or it is too old. Ask for a new one on your device.';
+    showScreen(coverScreen('Sign in', login.email, JOURNAL, `<p class="say">${text}</p>`));
+  });
+}
+
+// A new secret, made on this device.
+function randomSecret() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(24)), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+// Signs out here: forgets the session and the copies of the books.
+function signOut() {
+  const session = localStorage.getItem(SESSION);
+  if (session) client.mutation(api.auth.signOut, { session });
+  localStorage.clear();
+  location.replace('/');
+}
+
 // ---- Showing and turning pages ---------------------------------------------
 
 const page = document.getElementById('page') as HTMLElement;
@@ -578,7 +705,9 @@ function turnTo(index: number) {
   location.hash = String(Math.min(Math.max(index, 0), pages.length - 1) + 1);
 }
 
-addEventListener('hashchange', () => show(pageFromAddress()));
+addEventListener('hashchange', () => {
+  if (pages.length) show(pageFromAddress());
+});
 addEventListener('resize', fitPage);
 
 addEventListener('keydown', (event) => {
@@ -588,6 +717,7 @@ addEventListener('keydown', (event) => {
     if (event.key === 'Enter') event.target.blur();
     return;
   }
+  if (!pages.length) return;
   if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(event.key)) turnTo(current + 1);
   if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(event.key)) turnTo(current - 1);
 });
@@ -603,7 +733,7 @@ page.addEventListener('input', (event) => {
 // for the index. On a phone, a tap is part of reading and scrolling, so it
 // turns nothing: the bar at the foot of the screen and a swipe do.
 addEventListener('click', (event) => {
-  if (phone || (event.target as Element).closest('a, label')) return;
+  if (phone || !pages.length || (event.target as Element).closest('a, label, button')) return;
   const x = event.clientX / document.documentElement.clientWidth;
   if (x < 1 / 3) turnTo(current - 1);
   else if (x > 2 / 3) turnTo(current + 1);
@@ -630,34 +760,70 @@ addEventListener('touchend', (event) => {
 document.body.insertAdjacentHTML('beforeend', BOIL_FILTERS);
 fitPage();
 
-// The key stays in the address, so a share link can be bookmarked and the
-// display's kiosk browser can start on it.
-const key = new URLSearchParams(location.search).get('key');
-if (!key) {
-  showMessage('This page needs a key in its address, like …/?key=… Ask the owner of the book for a link.');
-} else {
-  // The device keeps a copy of the book, so that the book shows at once, and
-  // with no internet. The live book replaces the copy when Convex connects.
-  const saved = `book:${key}`;
-  const client = new ConvexClient(import.meta.env.VITE_CONVEX_URL);
+const client = new ConvexClient(import.meta.env.VITE_CONVEX_URL);
+// The signed-in device's session secret. While a device waits for its link,
+// it keeps the email, the code and the secret under SIGNING_IN.
+const SESSION = 'session';
+const SIGNING_IN = 'signing-in';
+
+// Follows a query live, and keeps a copy of each answer on the device, so
+// that the screen shows at once, and with no internet. The live answer
+// replaces the copy when Convex connects. The copy shows after the live answer
+// is asked for, so a copy from an older version of the site cannot stop it.
+function follow<Query extends FunctionReference<'query'>>(
+  query: Query,
+  args: FunctionArgs<Query>,
+  saved: string,
+  use: (result: FunctionReturnType<Query>) => void,
+) {
   client.onUpdate(
-    api.book.get,
-    { key },
-    (collection) => {
-      if (!collection) {
-        localStorage.removeItem(saved);
-        return showMessage('The key in this link does not open a book. It may be revoked. Ask the owner for a new link.');
-      }
-      localStorage.setItem(saved, JSON.stringify(collection));
-      openBook(collection);
+    query,
+    args,
+    (result) => {
+      if (result === null) localStorage.removeItem(saved);
+      else localStorage.setItem(saved, JSON.stringify(result));
+      use(result);
       keepFiles();
     },
-    (error) => showMessage(`The book could not load: ${error.message}`)
+    (error) => showMessage(`The book could not load: ${error.message}`),
   );
-  // The copy shows after the live book is asked for, so a copy from an older
-  // version of the site cannot stop the live book.
   const copy = localStorage.getItem(saved);
-  if (copy) openBook(JSON.parse(copy));
+  if (copy) use(JSON.parse(copy));
+}
+
+// The buttons on the app's own screens.
+page.addEventListener('click', (event) => {
+  const target = event.target as Element;
+  if (target.closest('[data-sign-out]')) signOut();
+  if (target.closest('[data-start-over]')) {
+    localStorage.removeItem(SIGNING_IN);
+    showSignIn();
+  }
+});
+
+// The key stays in the address, so a share link can be bookmarked and the
+// tablet's app can start on it.
+const params = new URLSearchParams(location.search);
+const key = params.get('key');
+const link = params.get('login');
+const cellarId = params.get('cellar') as Id<'cellars'> | null;
+const session = localStorage.getItem(SESSION);
+const signingIn = localStorage.getItem(SIGNING_IN);
+if (key) {
+  follow(api.book.get, { key }, `book:${key}`, (collection) =>
+    collection ? openBook(collection) : showMessage('The key in this link does not open a book. It may be revoked. Ask the owner for a new link.'),
+  );
+} else if (link) {
+  showApprove(link);
+} else if (!session) {
+  if (signingIn) showWaiting(JSON.parse(signingIn));
+  else showSignIn();
+} else if (cellarId) {
+  follow(api.book.ofCellar, { session, cellarId }, `book:${cellarId}`, (collection) =>
+    collection ? openBook(collection) : showMessage('This cellar is not in your journal, or you are signed out.'),
+  );
+} else {
+  follow(api.cellars.home, { session }, 'home', (home) => (home ? showHome(home) : signOut()));
 }
 
 // The site's files and fonts stay on the device too: public/sw.js keeps each

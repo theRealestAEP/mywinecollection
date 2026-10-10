@@ -518,6 +518,72 @@ a:focus-visible {
   color: var(--form);
 }
 
+/* On the owner's books, the line above the title leads back to the welcome page. */
+a.cover-volume {
+  display: block;
+}
+
+/* The app's own screens: sign-in, and the welcome page. Their words sit
+   among the cover's fields. */
+.sign-in {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sign-in input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 22px/30px var(--hand);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.sign-in input:focus {
+  border-bottom-color: var(--ink);
+}
+
+.shelves .sign-in label::after {
+  content: none;
+}
+
+button.field {
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.shelves .field b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.say {
+  font-family: var(--hand);
+  font-size: 22px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.quiet {
+  border: 0;
+  background: none;
+  color: var(--form);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* Index */
 .contents {
   position: absolute;

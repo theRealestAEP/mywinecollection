@@ -2,19 +2,22 @@ import { v } from 'convex/values';
 import { internalMutation, internalQuery } from './_generated/server';
 import { wildFields } from './schema';
 
-// Admin functions for wine in the wild: wines you tried somewhere else.
-//   npx convex run wild:add '{"wine": {"producer": "…", …, "tasted": "2026-09-20", "where": "…"}}'
+// Admin functions for a cellar's wine in the wild: wines tried somewhere else.
+//   npx convex run wild:add '{"cellarId": "…", "wine": {"producer": "…", …, "tasted": "2026-09-20", "where": "…"}}'
 
 export const add = internalMutation({
-  args: { wine: v.object(wildFields) },
-  handler: async (ctx, { wine }) => ctx.db.insert('wild', wine),
+  args: { cellarId: v.id('cellars'), wine: v.object(wildFields) },
+  handler: async (ctx, { cellarId, wine }) => ctx.db.insert('wild', { ...wine, cellar: cellarId }),
 });
 
-// The wines in the wild with their IDs, to find one to change.
+// A cellar's wines in the wild with their IDs, to find one to change.
 export const list = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const wines = await ctx.db.query('wild').collect();
+  args: { cellarId: v.id('cellars') },
+  handler: async (ctx, { cellarId }) => {
+    const wines = await ctx.db
+      .query('wild')
+      .withIndex('by_cellar', (q) => q.eq('cellar', cellarId))
+      .collect();
     return wines.map(({ _id, producer, name, vintage, tasted, where }) => ({ _id, producer, name, vintage, tasted, where }));
   },
 });

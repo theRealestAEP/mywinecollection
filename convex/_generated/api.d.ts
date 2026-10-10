@@ -9,10 +9,12 @@
  */
 
 import type * as accessKeys from "../accessKeys.js";
+import type * as auth from "../auth.js";
 import type * as book from "../book.js";
+import type * as cellars from "../cellars.js";
 import type * as journal from "../journal.js";
 import type * as keys from "../keys.js";
-import type * as settings from "../settings.js";
+import type * as move from "../move.js";
 import type * as sommelier from "../sommelier.js";
 import type * as wild from "../wild.js";
 import type * as wines from "../wines.js";
@@ -25,10 +27,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accessKeys: typeof accessKeys;
+  auth: typeof auth;
   book: typeof book;
+  cellars: typeof cellars;
   journal: typeof journal;
   keys: typeof keys;
-  settings: typeof settings;
+  move: typeof move;
   sommelier: typeof sommelier;
   wild: typeof wild;
   wines: typeof wines;

@@ -1,8 +1,10 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-// One Convex deployment holds one book: its settings, its wines, the log of
-// bottles opened, the talk with the sommelier, and the keys that open it.
+// One Convex deployment holds the cellars of the people on its list. Each
+// person signs in with their email and has their own cellars and their own
+// talk with the sommelier. Each cellar is a book: its wines, its wines tried
+// elsewhere, its drinking log, and the keys that open it on a screen.
 
 const level = v.optional(v.number()); // 1 (low) to 5 (high)
 
@@ -50,33 +52,46 @@ export const wildFields = {
   where: v.optional(v.string()),
 };
 
+// MOVE: until convex/move.ts has run, rows from before cellars have no
+// cellar or owner yet, so those fields are optional, and the settings table
+// and the owner key stay. After the move, they become required and go.
+
 export default defineSchema({
-  // One row. The title is the name on the cover, and it can change at any time.
+  // MOVE: the old book's title.
   settings: defineTable({
     title: v.string(),
   }),
 
-  // Every wine ever logged in the cellar. A wine with no bottles left stays
+  // A cellar belongs to one person, by their email. Its title is the name on
+  // the book's cover.
+  cellars: defineTable({
+    owner: v.string(),
+    title: v.string(),
+  }).index('by_owner', ['owner']),
+
+  // Every wine ever logged in a cellar. A wine with no bottles left stays
   // here, and the book shows it in the archive.
-  wines: defineTable(wineFields),
+  wines: defineTable({ ...wineFields, cellar: v.optional(v.id('cellars')) }).index('by_cellar', ['cellar']),
 
-  // Wine in the wild: wines you tried somewhere else.
-  wild: defineTable(wildFields),
+  // Wine in the wild: wines tried somewhere else, kept in a cellar's book.
+  wild: defineTable({ ...wildFields, cellar: v.optional(v.id('cellars')) }).index('by_cellar', ['cellar']),
 
-  // The drinking log: one entry for each bottle opened from the cellar, and
-  // for each wine tried somewhere else. The date is YYYY-MM-DD.
+  // A cellar's drinking log: one entry for each bottle opened from the
+  // cellar, and for each wine tried somewhere else. The date is YYYY-MM-DD.
   drinks: defineTable({
+    cellar: v.optional(v.id('cellars')),
     wine: v.union(v.id('wines'), v.id('wild')),
     date: v.string(),
     where: v.optional(v.string()),
     notes: v.optional(v.string()),
-  }),
+  }).index('by_cellar', ['cellar']),
 
-  // The talk with the sommelier, the agent that keeps the book. The owner
-  // sends text, photos, videos and voice notes; the sommelier replies. An
-  // owner's message waits until the sommelier reads it. The date is the
-  // owner's own date when they sent it, YYYY-MM-DD.
+  // Each person's talk with the sommelier, the agent that keeps their
+  // cellars. The owner sends text, photos, videos and voice notes; the
+  // sommelier replies. An owner's message waits until the sommelier reads it.
+  // The date is the owner's own date when they sent it, YYYY-MM-DD.
   messages: defineTable({
+    owner: v.optional(v.string()),
     from: v.union(v.literal('owner'), v.literal('sommelier')),
     text: v.string(),
     date: v.optional(v.string()),
@@ -91,15 +106,40 @@ export default defineSchema({
     // What Deepgram heard in the voice notes and videos.
     transcript: v.optional(v.string()),
     status: v.optional(v.union(v.literal('waiting'), v.literal('reading'), v.literal('done'), v.literal('failed'))),
-  }).index('by_status', ['status']),
+  })
+    .index('by_owner', ['owner'])
+    .index('by_owner_and_status', ['owner', 'status']),
 
-  // A key opens the book. A "display" is a tablet at home and a "share" is a
-  // view-only link for friends; these can only read the book. An "owner" key
-  // opens the sommelier, which can change the book. The database keeps a
-  // hash of each key, never the key itself.
+  // A key opens one cellar's book, read-only, with no sign-in. A "display" is
+  // a tablet at home and a "share" is a link for friends. The database keeps
+  // a hash of each key, never the key itself.
   accessKeys: defineTable({
+    cellar: v.optional(v.id('cellars')),
+    // MOVE: "owner" keys opened the old Sommelier page.
     kind: v.union(v.literal('display'), v.literal('share'), v.literal('owner')),
     name: v.string(),
     keyHash: v.string(),
   }).index('by_key_hash', ['keyHash']),
+
+  // Sign-in. A person asks for a link on a device, and the email brings them
+  // the link. When they open it, anywhere, the device that asked is signed
+  // in: on an iPhone, the home-screen app does not share its storage with
+  // Safari, where the link opens. The device made the session secret, and
+  // the login keeps its hash until the link is opened. The code is a number
+  // that both the device and the link's page show, so that a person can see
+  // the link is for their own device.
+  logins: defineTable({
+    email: v.string(),
+    linkHash: v.string(),
+    sessionHash: v.string(),
+    code: v.string(),
+    expires: v.number(),
+  }).index('by_link_hash', ['linkHash']),
+
+  // A signed-in device. A session lasts until the person signs out there, or
+  // their email leaves the list.
+  sessions: defineTable({
+    email: v.string(),
+    secretHash: v.string(),
+  }).index('by_secret_hash', ['secretHash']),
 });

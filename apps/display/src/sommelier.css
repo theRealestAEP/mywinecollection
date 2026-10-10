@@ -61,6 +61,7 @@ main {
 
 .from-sommelier {
   max-width: 88%;
+  white-space: pre-line;
   font-size: 19px;
   font-style: italic;
   line-height: 1.4;

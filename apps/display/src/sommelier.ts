@@ -1,8 +1,8 @@
-// Sommelier: the owner's page for talking to the sommelier, the agent that
-// keeps the book (convex/sommelier.ts). Send a photo or a video of a bottle,
-// a voice note, or a few words. The sommelier adds the wine, logs the bottle
-// you opened, or asks what it needs to know. The page needs an owner key in
-// its address (?key=…).
+// Sommelier: the owner's talk with the sommelier, the agent that keeps their
+// cellars (convex/sommelier.ts). Send a photo or a video of a bottle, a voice
+// note, or a few words. The sommelier proposes the wines to add, logs the
+// bottle you opened, answers questions, or asks what it needs to know. The
+// page needs the session of a device that signed in on the welcome page.
 
 import { ConvexClient } from 'convex/browser';
 import type { FunctionReturnType } from 'convex/server';
@@ -24,7 +24,7 @@ interface Attachment {
 // finer than this.
 const LONG_EDGE = 1568;
 
-const key = new URLSearchParams(location.search).get('key') ?? '';
+const session = localStorage.getItem('session') ?? '';
 const client = new ConvexClient(import.meta.env.VITE_CONVEX_URL);
 const app = document.getElementById('app') as HTMLElement;
 const attachments: Attachment[] = [];
@@ -35,7 +35,7 @@ let sending = false;
 app.innerHTML = `
   <header class="top">
     <h1>Sommelier</h1>
-    <a href="/?key=${encodeURIComponent(key)}">Open the journal</a>
+    <a href="/">Your cellars</a>
   </header>
   <ol class="talk"></ol>
   <form class="composer">
@@ -62,7 +62,7 @@ const FILE_LABELS: Record<Kind, string> = { image: 'Photo', audio: 'Voice note',
 const STATUS: Record<string, string> = { waiting: 'Sent', reading: 'Reading…', failed: 'Not read' };
 
 function showTalk(talk: Talk) {
-  const intro = `<li class="from-sommelier"><p>Send me a photo or a video of a bottle, a voice note, or a few words. I’ll add the wine to your journal, or log the bottle you opened.</p></li>`;
+  const intro = `<li class="from-sommelier"><p>Send me a photo of your bottles or your racks, a video, a voice note, or a few words. I’ll propose what to add to your cellars, log the bottles you open, and answer questions about your wine.</p></li>`;
   const items = talk.map((message) => {
     if (message.from === 'sommelier') return `<li class="from-sommelier"><p>${escapeHtml(message.text)}</p></li>`;
     const photos = message.files
@@ -175,7 +175,7 @@ form.addEventListener('submit', async (event) => {
     }
     // The owner's own date, YYYY-MM-DD, for the drinking log.
     const date = new Date().toLocaleDateString('en-CA');
-    await client.mutation(api.journal.send, { key, text, date, files });
+    await client.mutation(api.journal.send, { session, text, date, files });
     attachments.length = 0;
     showAttachments();
     textBox.value = '';
@@ -190,7 +190,7 @@ form.addEventListener('submit', async (event) => {
 
 // Uploads a file to Convex, and returns its id.
 async function upload(blob: Blob): Promise<Id<'_storage'>> {
-  const url = await client.mutation(api.journal.uploadUrl, { key });
+  const url = await client.mutation(api.journal.uploadUrl, { session });
   const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': blob.type || 'application/octet-stream' }, body: blob });
   if (!response.ok) throw new Error(`upload failed (${response.status})`);
   return (await response.json()).storageId;
@@ -237,8 +237,8 @@ function drawJpeg(source: CanvasImageSource, width: number, height: number): Pro
 
 // ---- Start -----------------------------------------------------------------------
 
-if (!key) {
-  showProblem('This page needs the Sommelier link, with its key in the address.');
+if (!session) {
+  showProblem('Sign in on the welcome page first, then come back here.');
 } else {
-  client.onUpdate(api.journal.talk, { key }, showTalk, (error) => showProblem(error.message));
+  client.onUpdate(api.journal.talk, { session }, showTalk, (error) => showProblem(error.message));
 }

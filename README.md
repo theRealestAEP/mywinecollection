@@ -20,7 +20,7 @@ The cover has three buttons:
 | Consumed | The drinking log: each bottle you opened, and each wine you tried somewhere else, with the date |
 | Archive | The wines you logged in the cellar that have no bottles left |
 
-On your phone, the Sommelier page keeps the book up to date. Send it a photo, a video, a voice note or a few words about a wine, and an AI agent adds the wine or logs the bottle you opened. When it needs to know more, it asks.
+On your phone, the site is an app. You sign in with your email, and the welcome page lists your cellars: each cellar is a book of its own. The app's Sommelier is an AI agent that keeps all your cellars. Send it a photo, a video, a voice note or a few words about a wine. It proposes the wines and bottles to add, logs the bottles you open, and answers questions about your wine. When it needs to know more, it asks.
 
 The pages are made for e-ink tablets, and they also work on phones and computers:
 
@@ -34,15 +34,25 @@ The pages are made for e-ink tablets, and they also work on phones and computers
 
 ## How it works
 
-Each person runs their own copy. One Convex deployment holds one book: its title, its wines, the drinking log, the talk with the sommelier, and its access keys. The site is static, and Cloudflare can host it for free.
+Each person runs their own copy. One Convex deployment holds the cellars of the people on its list, for example you and your family. Each person signs in with their email, and has their own cellars and their own sommelier. Each cellar holds its wines, its wines tried elsewhere, and its drinking log. The site is static, and Cloudflare can host it for free.
 
-A screen opens the book with an access key in its address (`…/?key=…`). There are three kinds:
+There are two ways to open a book:
 
-| Kind | For | Notes |
+| Way | For | Notes |
 | --- | --- | --- |
-| `display` | A tablet in your home | It can only read the book. |
-| `share` | A view-only link for friends | It can only read the book. You can revoke it at any time. |
-| `owner` | The Sommelier page on your phone | It can change the book, through the sommelier. |
+| Sign in with your email | Your phone or computer | You see all your cellars, and the Sommelier can change them. |
+| A key in the address (`…/?key=…`) | A tablet on the wall (`display`), or a link for friends (`share`) | It opens one cellar, read-only, with no sign-in. You can revoke a key at any time. |
+
+### Sign in
+
+1. On the welcome page, you type your email. The device shows a number.
+2. The email brings a link. You can open it on any device, for example in the phone's mail app.
+3. The link's page shows the same number. You check it, then tap **Sign in my device**.
+4. The device that asked is now signed in.
+
+On an iPhone, a link always opens in Safari, and an app on the home screen does not share its sign-in with Safari. That is why the link signs in the device that asked, wherever you open it. The number shows that the link is for your own device.
+
+A sign-in lasts until you sign out on that device, or your email leaves the list.
 
 The book follows live data: a change in Convex shows on every open screen at once.
 
@@ -75,25 +85,26 @@ You need Node.js 22.12 or later and a free [Convex](https://convex.dev) account.
    npx convex dev
    ```
 
-3. In a second terminal, load the sample wines. To start with an empty book, skip this step.
+3. In a second terminal, put your email on the list, and give the site's address for the sign-in link:
 
    ```bash
-   npm run import-wines -- seed/wines.json
+   npx convex env set ALLOWED_EMAILS you@example.com
+   npx convex env set SITE_URL http://localhost:5180
    ```
 
-4. Give the book a title:
+4. Make your first cellar. The command shows the cellar's ID:
 
    ```bash
-   npx convex run settings:setTitle '{"title": "The Cellar"}'
+   npx convex run cellars:create '{"owner": "you@example.com", "title": "The Cellar"}'
    ```
 
-5. Make a key. The command shows the key only once, so copy it:
+5. Load the sample wines into it. To start with an empty cellar, skip this step.
 
    ```bash
-   npx convex run accessKeys:create '{"kind": "display", "name": "My computer"}'
+   npm run import-wines -- seed/wines.json --cellar <cellar ID>
    ```
 
-6. Start the book, then open `http://localhost:5180/?key=<key>`:
+6. Start the site, then open `http://localhost:5180` and sign in. Until you set up email (see [Email](#email)), the sign-in link shows in the output of `npx convex dev`.
 
    ```bash
    npm run dev
@@ -121,20 +132,45 @@ The book deploys to a Convex production deployment and to Cloudflare. You need a
    npx wrangler deploy
    ```
 
-4. Copy your wines from dev to production:
+4. Set up sign-in on production. Use the Worker's address for `SITE_URL`, and see [Email](#email) for the email key:
 
    ```bash
-   npx convex run wines:exportCollection > book.json
-   npm run import-wines -- book.json --prod
+   npx convex env set --prod ALLOWED_EMAILS you@example.com
+   npx convex env set --prod SITE_URL https://<the Worker's address>
+   npx convex env set --prod RESEND_API_KEY
    ```
 
-5. Make a key for production:
+5. Make a cellar on production, and copy your wines from a dev cellar into it:
 
    ```bash
-   npx convex run --prod accessKeys:create '{"kind": "display", "name": "Wall tablet"}'
+   npx convex run --prod cellars:create '{"owner": "you@example.com", "title": "The Cellar"}'
+   npx convex run wines:exportCollection '{"cellarId": "<dev cellar ID>"}' > book.json
+   npm run import-wines -- book.json --cellar <production cellar ID> --prod
    ```
 
-6. Open `https://<the Worker's address>/?key=<key>`. On an e-ink tablet, add `&eink` to the end of the link.
+6. Open `https://<the Worker's address>` and sign in. On an iPhone, tap Share, then Add to Home Screen, to keep it as an app.
+
+7. For a tablet, make a display key for one cellar, then open `https://<the Worker's address>/?key=<key>`. On an e-ink tablet, add `&eink` to the end of the link.
+
+   ```bash
+   npx convex run --prod accessKeys:create '{"cellarId": "<cellar ID>", "kind": "display", "name": "Wall tablet"}'
+   ```
+
+### Email
+
+The sign-in email goes out through [Resend](https://resend.com). Make an API key in Resend, then add it to Convex. The command asks for the value:
+
+```bash
+npx convex env set --prod RESEND_API_KEY
+```
+
+Without a domain of your own, Resend sends from `onboarding@resend.dev`, and only to the email of your Resend account. To sign in other people, add your domain in Resend, then set the sender, for example:
+
+```bash
+npx convex env set --prod EMAIL_FROM 'Wine Journal <journal@example.com>'
+```
+
+Without `RESEND_API_KEY`, no email goes out, and the sign-in link shows in the Convex logs instead.
 
 ### Deploy on each push
 
@@ -175,24 +211,26 @@ On a BOOX tablet, also do this:
 
 ## Admin commands
 
-Run these in the project folder. JSON arguments go in single quotes. These commands change your dev deployment. To change the production book, add `--prod` after `run`, for example `npx convex run --prod wines:list`.
+Run these in the project folder. JSON arguments go in single quotes. These commands change your dev deployment. To change production, add `--prod` after `run`, for example `npx convex run --prod cellars:list`. Most commands take a cellar's ID, from `cellars:list`.
 
 | To | Run |
 | --- | --- |
-| Change the title | `npx convex run settings:setTitle '{"title": "…"}'` |
+| Let a person sign in | `npx convex env set ALLOWED_EMAILS 'you@example.com,sam@example.com'` |
+| List the cellars | `npx convex run cellars:list` |
+| Make a cellar | `npx convex run cellars:create '{"owner": "you@example.com", "title": "…"}'` |
+| Rename a cellar | `npx convex run cellars:rename '{"cellarId": "…", "title": "…"}'` |
 | Check a collection file | `npm run check-wines -- seed/wines.json` |
-| Import a collection file | `npm run import-wines -- seed/wines.json` |
-| Replace the whole book with a file | `npm run import-wines -- backup.json --replace` |
-| Back up the book | `npx convex run wines:exportCollection > backup.json` |
-| List the wines in the cellar | `npx convex run wines:list` |
-| Add a wine to the cellar | `npx convex run wines:add '{"wine": {…}}'` |
+| Import a collection file | `npm run import-wines -- seed/wines.json --cellar <ID>` |
+| Replace a cellar's wines with a file | `npm run import-wines -- backup.json --cellar <ID> --replace` |
+| Back up a cellar | `npx convex run wines:exportCollection '{"cellarId": "…"}' > backup.json` |
+| List a cellar's wines | `npx convex run wines:list '{"cellarId": "…"}'` |
+| Add a wine to a cellar | `npx convex run wines:add '{"cellarId": "…", "wine": {…}}'` |
 | Change a wine | `npx convex run wines:update '{"wineId": "…", "changes": {"quantity": 1}}'` |
-| List the wines in the wild | `npx convex run wild:list` |
-| Add a wine in the wild | `npx convex run wild:add '{"wine": {…}}'` |
+| List a cellar's wines in the wild | `npx convex run wild:list '{"cellarId": "…"}'` |
+| Add a wine in the wild | `npx convex run wild:add '{"cellarId": "…", "wine": {…}}'` |
 | Change a wine in the wild | `npx convex run wild:update '{"wildId": "…", "changes": {…}}'` |
-| Make a display key | `npx convex run accessKeys:create '{"kind": "display", "name": "Dining room"}'` |
-| Make a share link key | `npx convex run accessKeys:create '{"kind": "share", "name": "For Sam"}'` |
-| Make a key for the Sommelier | `npx convex run accessKeys:create '{"kind": "owner", "name": "My phone"}'` |
+| Make a display key | `npx convex run accessKeys:create '{"cellarId": "…", "kind": "display", "name": "Dining room"}'` |
+| Make a share link key | `npx convex run accessKeys:create '{"cellarId": "…", "kind": "share", "name": "For Sam"}'` |
 | List the keys | `npx convex run accessKeys:list` |
 | Revoke a key | `npx convex run accessKeys:revoke '{"accessKeyId": "…"}'` |
 
@@ -202,7 +240,14 @@ A wine with no bottles left stays in the book, in the archive. To write your own
 
 ## The Sommelier
 
-The Sommelier is a page for your phone. Send it a photo or a video of a bottle, a voice note, or a few words. The sommelier, an AI agent, reads the label and updates the book: it adds bottles to the cellar, logs a bottle you opened, or logs a wine you tried somewhere else. A wine with no bottles left moves to the archive. When the sommelier needs to know more, it asks, for example: "Is this for the cellar, or did you try it somewhere?"
+The Sommelier is the app's chat. Send it a photo of your bottles or your racks, a video, a voice note, or a few words. The sommelier, an AI agent, reads the labels and keeps all your cellars:
+
+- It proposes the wines and bottles to add, and the cellar, and adds them when you agree.
+- It logs a bottle you opened, or a wine you tried somewhere else. A wine with no bottles left moves to the archive.
+- It answers questions about your wine: what you have, what is ready to drink, what you drank and when, and what to open with a meal.
+- It can start and rename cellars.
+
+When it needs to know more, it asks, for example: "Is this for the cellar, or did you try it somewhere?" or "Which cellar?"
 
 The sommelier runs in Convex (`convex/sommelier.ts`). Claude reads the photos and does the thinking, and Deepgram turns the speech in voice notes and videos into text. Set their keys as Convex environment variables. Each command asks for the value:
 
@@ -211,13 +256,7 @@ npx convex env set ANTHROPIC_API_KEY --prod
 npx convex env set DEEPGRAM_API_KEY --prod
 ```
 
-Leave out `--prod` to set them on your dev deployment. Then make an owner key:
-
-```bash
-npx convex run --prod accessKeys:create '{"kind": "owner", "name": "My phone"}'
-```
-
-Open `https://<the Worker's address>/sommelier?key=<key>` on your phone. On an iPhone, tap Share, then Add to Home Screen, to keep it as an app.
+Leave out `--prod` to set them on your dev deployment. Then sign in on the welcome page, and tap **Sommelier**.
 
 ## Add a wine from Claude Code
 

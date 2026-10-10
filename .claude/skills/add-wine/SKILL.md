@@ -5,9 +5,9 @@ description: Add a wine to the book from photos of the bottle, log a wine the us
 
 # Add a wine from a photo
 
-The book reads its wines from Convex. Each wine must follow the wine object in `shared/wines.schema.json`; the field descriptions there say what each field means. Convex rejects a wine whose fields have the wrong type or value.
+The books read their wines from Convex. Each person has one or more cellars, and each cellar is a book. Each wine must follow the wine object in `shared/wines.schema.json`; the field descriptions there say what each field means. Convex rejects a wine whose fields have the wrong type or value.
 
-The book keeps two lists:
+Each cellar keeps two lists:
 
 | List | Holds | Commands |
 | --- | --- | --- |
@@ -17,6 +17,10 @@ The book keeps two lists:
 The book on the web reads the production deployment, so each command below has `--prod`. If the user works only on their own computer, and has no production deployment yet, leave `--prod` out.
 
 Commands take JSON in single quotes. Text inside that JSON cannot contain a straight apostrophe ('), so write ’ instead.
+
+## Find the cellar
+
+Run `npx convex run --prod cellars:list`. If there is more than one cellar, ask the user which one. Use that cellar's ID as `cellarId` in the commands below.
 
 ## Add a wine
 
@@ -32,11 +36,11 @@ Commands take JSON in single quotes. Text inside that JSON cannot contain a stra
    - Keep each `structure` value, and `rating`, from 1 to 5.
 5. If the user tells you something about this wine or bottle, put it in `notes`. Use `\n` for a new line.
 6. For a wine in the cellar:
-   - Run `npx convex run --prod wines:list`. If the same wine (the same producer, name and vintage) is already there, add the new bottles to its `quantity` with `wines:update`. Do not add it again.
+   - Run `npx convex run --prod wines:list '{"cellarId": "<ID>"}'`. If the same wine (the same producer, name and vintage) is already there, add the new bottles to its `quantity` with `wines:update`. Do not add it again.
    - Otherwise, add it. Set `quantity` to the number of bottles, or 1 if the user does not say:
-     `npx convex run --prod wines:add '{"wine": { … }}'`
+     `npx convex run --prod wines:add '{"cellarId": "<ID>", "wine": { … }}'`
 7. For a wine in the wild, set `tasted` to the date the user tried it (for example "2026-09-20") and `where` to the place. Then add it:
-   `npx convex run --prod wild:add '{"wine": { … }}'`
+   `npx convex run --prod wild:add '{"cellarId": "<ID>", "wine": { … }}'`
 8. Fix each error that Convex reports, and run the command again.
 9. Move each photo from `inbox/` to `photos/`, and name it after the wine, for example `photos/chateau-musar-rouge-2016.jpg`. An image attached to the message has no file to move.
 10. Tell the user what you added or changed. List each field that you could not read from the photo.
@@ -48,5 +52,5 @@ Commands take JSON in single quotes. Text inside that JSON cannot contain a stra
   - `npx convex run --prod wild:update '{"wildId": "<ID>", "changes": { … }}'`
 - When the user drank a bottle, subtract 1 from its `quantity`. At 0, the wine moves to the archive. Keep the wine.
 - When the user gives a rating, set `rating` (1 to 5).
-- An update replaces the whole `notes` text. To add to the notes, first read the old notes with `npx convex run --prod wines:exportCollection`. Then send the old text and the new text together.
-- To change the title on the cover, run `npx convex run --prod settings:setTitle '{"title": "…"}'`.
+- An update replaces the whole `notes` text. To add to the notes, first read the old notes with `npx convex run --prod wines:exportCollection '{"cellarId": "<ID>"}'`. Then send the old text and the new text together.
+- To change the title on a cellar's cover, run `npx convex run --prod cellars:rename '{"cellarId": "<ID>", "title": "…"}'`.

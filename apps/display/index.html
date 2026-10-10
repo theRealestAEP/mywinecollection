@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Wine Portraits</title>
+    <title>Wine Journal</title>
     <link rel="icon" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <meta name="theme-color" content="#fbfaf6" />
@@ -13,17 +13,19 @@
       // first paint, so the screen never shows the dark desk.
       if (new URLSearchParams(location.search).has('eink')) document.documentElement.classList.add('eink');
 
-      // The book installs as an app. The manifest is made here, so that the
-      // app opens this same address, with its key.
+      // The page installs as an app. The manifest is made here: a book opened
+      // with a key installs as that book, with its key, and the signed-in app
+      // installs as the welcome page.
       {
         const icon = (size, purpose) => ({ src: new URL(`/icon-${size}.png`, location.href).href, sizes: `${size}x${size}`, type: 'image/png', purpose });
+        const keyed = new URLSearchParams(location.search).has('key');
         const manifest = {
-          name: 'Wine Portraits',
-          short_name: 'Wine Portraits',
-          display: 'fullscreen',
+          name: 'Wine Journal',
+          short_name: 'Wine Journal',
+          display: keyed ? 'fullscreen' : 'standalone',
           background_color: '#fbfaf6',
           theme_color: '#fbfaf6',
-          start_url: location.href.split('#')[0],
+          start_url: keyed ? location.href.split('#')[0] : new URL('/', location.href).href,
           icons: [icon(192, 'any'), icon(512, 'any'), icon(512, 'maskable')],
         };
         const link = document.createElement('link');

@@ -1,60 +1,77 @@
 import { v } from 'convex/values';
 import { internalMutation, internalQuery } from './_generated/server';
 import { wildFields, wineFields } from './schema';
-import { saveTitle } from './settings';
 
-// Admin functions for wines, until the phone app can make these changes.
+// Admin functions for a cellar's wines. Find a cellar's ID with cellars:list.
 
 const wine = v.object(wineFields);
 
-// Loads a collection in the wines.json format: sets the title and adds the
-// cellar's wines and the wines in the wild. With `replace`, it deletes the
-// book's wines first; without it, it stops if the book already has wines.
-// scripts/import-wines.mjs calls this.
+// Loads a collection in the wines.json format into a cellar: sets the
+// cellar's title and adds its wines and its wines in the wild. With
+// `replace`, it deletes the cellar's wines first; without it, it stops if
+// the cellar already has wines. scripts/import-wines.mjs calls this.
 export const importCollection = internalMutation({
-  args: { title: v.string(), wines: v.array(wine), wild: v.optional(v.array(v.object(wildFields))), replace: v.boolean() },
-  handler: async (ctx, { title, wines, wild = [], replace }) => {
-    const existing = [...(await ctx.db.query('wines').collect()), ...(await ctx.db.query('wild').collect())];
+  args: { cellarId: v.id('cellars'), title: v.string(), wines: v.array(wine), wild: v.optional(v.array(v.object(wildFields))), replace: v.boolean() },
+  handler: async (ctx, { cellarId, title, wines, wild = [], replace }) => {
+    const existing = [
+      ...(await ctx.db
+        .query('wines')
+        .withIndex('by_cellar', (q) => q.eq('cellar', cellarId))
+        .collect()),
+      ...(await ctx.db
+        .query('wild')
+        .withIndex('by_cellar', (q) => q.eq('cellar', cellarId))
+        .collect()),
+    ];
     if (existing.length && !replace) {
-      throw new Error(`The book already has ${existing.length} wines. Import with --replace to replace them.`);
+      throw new Error(`The cellar already has ${existing.length} wines. Import with --replace to replace them.`);
     }
     for (const each of existing) await ctx.db.delete(each._id);
-    await saveTitle(ctx.db, title);
-    for (const each of wines) await ctx.db.insert('wines', each);
-    for (const each of wild) await ctx.db.insert('wild', each);
+    await ctx.db.patch(cellarId, { title });
+    for (const each of wines) await ctx.db.insert('wines', { ...each, cellar: cellarId });
+    for (const each of wild) await ctx.db.insert('wild', { ...each, cellar: cellarId });
     return `${wines.length} cellar wines and ${wild.length} wines in the wild imported.`;
   },
 });
 
-// The book in the wines.json format, for backups:
-//   npx convex run wines:exportCollection > backup.json
+// A cellar in the wines.json format, for backups:
+//   npx convex run wines:exportCollection '{"cellarId": "…"}' > backup.json
 export const exportCollection = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const settings = await ctx.db.query('settings').first();
-    const wines = await ctx.db.query('wines').collect();
-    const wild = await ctx.db.query('wild').collect();
+  args: { cellarId: v.id('cellars') },
+  handler: async (ctx, { cellarId }) => {
+    const cellar = await ctx.db.get(cellarId);
+    const wines = await ctx.db
+      .query('wines')
+      .withIndex('by_cellar', (q) => q.eq('cellar', cellarId))
+      .collect();
+    const wild = await ctx.db
+      .query('wild')
+      .withIndex('by_cellar', (q) => q.eq('cellar', cellarId))
+      .collect();
     return {
-      title: settings?.title ?? 'Wine Portraits',
-      wines: wines.map(({ _id, _creationTime, ...fields }) => fields),
-      wild: wild.map(({ _id, _creationTime, ...fields }) => fields),
+      title: cellar?.title ?? '',
+      wines: wines.map(({ _id, _creationTime, cellar, ...fields }) => fields),
+      wild: wild.map(({ _id, _creationTime, cellar, ...fields }) => fields),
     };
   },
 });
 
-// The wines with their IDs, to find a wine to change.
-//   npx convex run wines:list
+// A cellar's wines with their IDs, to find a wine to change.
+//   npx convex run wines:list '{"cellarId": "…"}'
 export const list = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const wines = await ctx.db.query('wines').collect();
+  args: { cellarId: v.id('cellars') },
+  handler: async (ctx, { cellarId }) => {
+    const wines = await ctx.db
+      .query('wines')
+      .withIndex('by_cellar', (q) => q.eq('cellar', cellarId))
+      .collect();
     return wines.map(({ _id, producer, name, vintage, quantity }) => ({ _id, producer, name, vintage, quantity }));
   },
 });
 
 export const add = internalMutation({
-  args: { wine },
-  handler: async (ctx, { wine }) => ctx.db.insert('wines', wine),
+  args: { cellarId: v.id('cellars'), wine },
+  handler: async (ctx, { cellarId, wine }) => ctx.db.insert('wines', { ...wine, cellar: cellarId }),
 });
 
 // Changes some fields of a wine, for example {"quantity": 1}. The schema

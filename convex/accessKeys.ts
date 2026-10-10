@@ -1,28 +1,27 @@
 import { v } from 'convex/values';
 import { internal } from './_generated/api';
 import { internalAction, internalMutation, internalQuery } from './_generated/server';
-import { hashKey } from './keys';
+import { hashKey, randomKey } from './keys';
 
-// Admin functions for access keys. A key is shown only once, when it is made;
-// open the book at https://…/?key=<key>.
-//   npx convex run accessKeys:create '{"kind": "display", "name": "Dining room"}'
-//   npx convex run accessKeys:create '{"kind": "share", "name": "For Sam"}'
-//   npx convex run accessKeys:create '{"kind": "owner", "name": "My phone"}'
+// Admin functions for access keys. A key opens one cellar's book, read-only.
+// It is shown only once, when it is made; open the book at
+// https://…/?key=<key>. Find a cellar's ID with cellars:list.
+//   npx convex run accessKeys:create '{"cellarId": "…", "kind": "display", "name": "Dining room"}'
+//   npx convex run accessKeys:create '{"cellarId": "…", "kind": "share", "name": "For Sam"}'
 
-const kind = v.union(v.literal('display'), v.literal('share'), v.literal('owner'));
+const kind = v.union(v.literal('display'), v.literal('share'));
 
 export const create = internalAction({
-  args: { kind, name: v.string() },
-  handler: async (ctx, { kind, name }): Promise<string> => {
-    const bytes = crypto.getRandomValues(new Uint8Array(24));
-    const key = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
-    await ctx.runMutation(internal.accessKeys.insert, { kind, name, keyHash: await hashKey(key) });
+  args: { cellarId: v.id('cellars'), kind, name: v.string() },
+  handler: async (ctx, { cellarId, kind, name }): Promise<string> => {
+    const key = randomKey();
+    await ctx.runMutation(internal.accessKeys.insert, { cellar: cellarId, kind, name, keyHash: await hashKey(key) });
     return key;
   },
 });
 
 export const insert = internalMutation({
-  args: { kind, name: v.string(), keyHash: v.string() },
+  args: { cellar: v.id('cellars'), kind, name: v.string(), keyHash: v.string() },
   handler: async (ctx, accessKey) => {
     await ctx.db.insert('accessKeys', accessKey);
   },
@@ -33,7 +32,7 @@ export const list = internalQuery({
   args: {},
   handler: async (ctx) => {
     const keys = await ctx.db.query('accessKeys').collect();
-    return keys.map(({ _id, kind, name }) => ({ _id, kind, name }));
+    return keys.map(({ _id, cellar, kind, name }) => ({ _id, cellar, kind, name }));
   },
 });
 
