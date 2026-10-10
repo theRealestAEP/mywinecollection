@@ -52,16 +52,7 @@ export const wildFields = {
   where: v.optional(v.string()),
 };
 
-// MOVE: until convex/move.ts has run, rows from before cellars have no
-// cellar or owner yet, so those fields are optional, and the settings table
-// and the owner key stay. After the move, they become required and go.
-
 export default defineSchema({
-  // MOVE: the old book's title.
-  settings: defineTable({
-    title: v.string(),
-  }),
-
   // A cellar belongs to one person, by their email. Its title is the name on
   // the book's cover.
   cellars: defineTable({
@@ -71,15 +62,15 @@ export default defineSchema({
 
   // Every wine ever logged in a cellar. A wine with no bottles left stays
   // here, and the book shows it in the archive.
-  wines: defineTable({ ...wineFields, cellar: v.optional(v.id('cellars')) }).index('by_cellar', ['cellar']),
+  wines: defineTable({ ...wineFields, cellar: v.id('cellars') }).index('by_cellar', ['cellar']),
 
   // Wine in the wild: wines tried somewhere else, kept in a cellar's book.
-  wild: defineTable({ ...wildFields, cellar: v.optional(v.id('cellars')) }).index('by_cellar', ['cellar']),
+  wild: defineTable({ ...wildFields, cellar: v.id('cellars') }).index('by_cellar', ['cellar']),
 
   // A cellar's drinking log: one entry for each bottle opened from the
   // cellar, and for each wine tried somewhere else. The date is YYYY-MM-DD.
   drinks: defineTable({
-    cellar: v.optional(v.id('cellars')),
+    cellar: v.id('cellars'),
     wine: v.union(v.id('wines'), v.id('wild')),
     date: v.string(),
     where: v.optional(v.string()),
@@ -91,7 +82,7 @@ export default defineSchema({
   // sommelier replies. An owner's message waits until the sommelier reads it.
   // The date is the owner's own date when they sent it, YYYY-MM-DD.
   messages: defineTable({
-    owner: v.optional(v.string()),
+    owner: v.string(),
     from: v.union(v.literal('owner'), v.literal('sommelier')),
     text: v.string(),
     date: v.optional(v.string()),
@@ -114,9 +105,8 @@ export default defineSchema({
   // a tablet at home and a "share" is a link for friends. The database keeps
   // a hash of each key, never the key itself.
   accessKeys: defineTable({
-    cellar: v.optional(v.id('cellars')),
-    // MOVE: "owner" keys opened the old Sommelier page.
-    kind: v.union(v.literal('display'), v.literal('share'), v.literal('owner')),
+    cellar: v.id('cellars'),
+    kind: v.union(v.literal('display'), v.literal('share')),
     name: v.string(),
     keyHash: v.string(),
   }).index('by_key_hash', ['keyHash']),

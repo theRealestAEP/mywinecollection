@@ -14,7 +14,6 @@ import type * as book from "../book.js";
 import type * as cellars from "../cellars.js";
 import type * as journal from "../journal.js";
 import type * as keys from "../keys.js";
-import type * as move from "../move.js";
 import type * as sommelier from "../sommelier.js";
 import type * as wild from "../wild.js";
 import type * as wines from "../wines.js";
@@ -32,7 +31,6 @@ declare const fullApi: ApiFromModules<{
   cellars: typeof cellars;
   journal: typeof journal;
   keys: typeof keys;
-  move: typeof move;
   sommelier: typeof sommelier;
   wild: typeof wild;
   wines: typeof wines;
