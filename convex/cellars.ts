@@ -38,6 +38,7 @@ export const home = query({
 // belongs to; the sommelier can also make and rename cellars.
 //   npx convex run cellars:create '{"owner": "you@example.com", "title": "The Cellar"}'
 //   npx convex run cellars:rename '{"cellarId": "…", "title": "The Cellar"}'
+//   npx convex run cellars:setOwner '{"cellarId": "…", "owner": "you@example.com"}'
 
 export const create = internalMutation({
   args: { owner: v.string(), title: v.string() },
@@ -56,5 +57,13 @@ export const rename = internalMutation({
   args: { cellarId: v.id('cellars'), title: v.string() },
   handler: async (ctx, { cellarId, title }) => {
     await ctx.db.patch(cellarId, { title });
+  },
+});
+
+// Gives a cellar to another person, by their email.
+export const setOwner = internalMutation({
+  args: { cellarId: v.id('cellars'), owner: v.string() },
+  handler: async (ctx, { cellarId, owner }) => {
+    await ctx.db.patch(cellarId, { owner: owner.trim().toLowerCase() });
   },
 });

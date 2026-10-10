@@ -219,6 +219,7 @@ Run these in the project folder. JSON arguments go in single quotes. These comma
 | List the cellars | `npx convex run cellars:list` |
 | Make a cellar | `npx convex run cellars:create '{"owner": "you@example.com", "title": "…"}'` |
 | Rename a cellar | `npx convex run cellars:rename '{"cellarId": "…", "title": "…"}'` |
+| Give a cellar to another person | `npx convex run cellars:setOwner '{"cellarId": "…", "owner": "sam@example.com"}'` |
 | Check a collection file | `npm run check-wines -- seed/wines.json` |
 | Import a collection file | `npm run import-wines -- seed/wines.json --cellar <ID>` |
 | Replace a cellar's wines with a file | `npm run import-wines -- backup.json --cellar <ID> --replace` |
