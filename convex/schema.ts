@@ -94,6 +94,8 @@ export default defineSchema({
         }),
       ),
     ),
+    // What the owner was looking at in the app when they sent it.
+    context: v.optional(v.string()),
     // What Deepgram heard in the voice notes and videos.
     transcript: v.optional(v.string()),
     status: v.optional(v.union(v.literal('waiting'), v.literal('reading'), v.literal('done'), v.literal('failed'))),

@@ -36,6 +36,7 @@ import {
   seededRandom,
   svg,
 } from '../../../shared/draw';
+import { openSommelier } from './sommelier';
 import './style.css';
 
 type Collection = NonNullable<FunctionReturnType<typeof api.book.get>>;
@@ -483,7 +484,7 @@ function showHome({ email, cellars, plates }: Home) {
     (cellar) =>
       `<a class="field" href="/?cellar=${cellar._id}"><i>Cellar</i><b>${escapeHtml(cellar.title)}, ${plural(cellar.bottles, 'bottle')}</b></a>`,
   );
-  shelves.push('<a class="field" href="/sommelier"><i>Sommelier</i><b>add, log or ask about a wine</b></a>');
+  shelves.push('<button type="button" class="field" data-ask><i>Sommelier</i><b>add, log or ask about a wine</b></button>');
   const subtitle = cellars.length ? 'choose a cellar' : 'ask the sommelier to start your first cellar';
   const plate = plates[Math.floor(Math.random() * plates.length)] ?? JOURNAL;
   showScreen(coverScreen(`Welcome, ${nameOf(email)}`, subtitle, plate, shelves.join(''), '<button type="button" class="quiet" data-sign-out>Sign out</button>'));
@@ -542,6 +543,22 @@ async function showApprove(link: string) {
     const text = done ? 'Your device is signed in. You can close this page.' : 'The link was used, or it is too old. Ask for a new one on your device.';
     showScreen(coverScreen('Sign in', login.email, JOURNAL, `<p class="say">${text}</p>`));
   });
+}
+
+// What the owner is looking at, for the sommelier: the welcome page, or a
+// page of one of their cellar books, with the wine's id on a wine's page.
+function pageContext(): string {
+  if (!pages.length) return 'the welcome page, with the list of their cellars';
+  const where = `the book of the cellar "${book.title}" (cellar id ${cellarId})`;
+  const firstConsumed = 1 + book.indexPages.length;
+  const firstEntry = firstConsumed + book.consumedPages.length;
+  if (current === 0) return `the cover of ${where}`;
+  if (current < firstConsumed) return `the index of ${where}${query ? `, with a search for "${query}"` : ''}`;
+  if (current < firstEntry) return `the drinking log of ${where}`;
+  const wine = book.entries[current - firstEntry];
+  let list = 'tried elsewhere';
+  if (inCellar(wine)) list = wine.quantity ? `${plural(wine.quantity, 'bottle')} in the cellar` : 'in the archive, with no bottles left';
+  return `the page of ${wine.producer}, ${wine.name}, ${wine.vintage || 'NV'} (wine id ${wine._id}; ${list}) in ${where}`;
 }
 
 // A new secret, made on this device.
@@ -710,7 +727,13 @@ addEventListener('hashchange', () => {
 });
 addEventListener('resize', fitPage);
 
+// While the Sommelier panel is open, keys, taps and swipes belong to it.
+function chatting() {
+  return document.documentElement.classList.contains('chatting');
+}
+
 addEventListener('keydown', (event) => {
+  if (chatting()) return;
   // Keys in the search box type. Enter closes the on-screen keyboard, so that
   // the whole list of results shows.
   if (event.target instanceof HTMLInputElement) {
@@ -733,7 +756,7 @@ page.addEventListener('input', (event) => {
 // for the index. On a phone, a tap is part of reading and scrolling, so it
 // turns nothing: the bar at the foot of the screen and a swipe do.
 addEventListener('click', (event) => {
-  if (phone || !pages.length || (event.target as Element).closest('a, label, button')) return;
+  if (phone || !pages.length || chatting() || (event.target as Element).closest('a, label, button')) return;
   const x = event.clientX / document.documentElement.clientWidth;
   if (x < 1 / 3) turnTo(current - 1);
   else if (x > 2 / 3) turnTo(current + 1);
@@ -746,7 +769,7 @@ addEventListener('click', (event) => {
 let swipeStart: { x: number; y: number } | undefined;
 addEventListener('touchstart', (event) => {
   const [touch] = event.touches;
-  swipeStart = event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : undefined;
+  swipeStart = event.touches.length === 1 && !chatting() ? { x: touch.clientX, y: touch.clientY } : undefined;
 });
 addEventListener('touchend', (event) => {
   if (!swipeStart || event.touches.length || (visualViewport?.scale ?? 1) > 1) return;
@@ -792,8 +815,9 @@ function follow<Query extends FunctionReference<'query'>>(
 }
 
 // The buttons on the app's own screens.
-page.addEventListener('click', (event) => {
+addEventListener('click', (event) => {
   const target = event.target as Element;
+  if (target.closest('[data-ask]')) openSommelier(client, session ?? '', pageContext());
   if (target.closest('[data-sign-out]')) signOut();
   if (target.closest('[data-start-over]')) {
     localStorage.removeItem(SIGNING_IN);
@@ -818,12 +842,16 @@ if (key) {
 } else if (!session) {
   if (signingIn) showWaiting(JSON.parse(signingIn));
   else showSignIn();
-} else if (cellarId) {
-  follow(api.book.ofCellar, { session, cellarId }, `book:${cellarId}`, (collection) =>
-    collection ? openBook(collection) : showMessage('This cellar is not in your journal, or you are signed out.'),
-  );
 } else {
-  follow(api.cellars.home, { session }, 'home', (home) => (home ? showHome(home) : signOut()));
+  if (cellarId) {
+    follow(api.book.ofCellar, { session, cellarId }, `book:${cellarId}`, (collection) =>
+      collection ? openBook(collection) : showMessage('This cellar is not in your journal, or you are signed out.'),
+    );
+  } else {
+    follow(api.cellars.home, { session }, 'home', (home) => (home ? showHome(home) : signOut()));
+  }
+  // The Sommelier is a tap away on each screen of the signed-in app.
+  document.body.insertAdjacentHTML('beforeend', '<button type="button" class="ask" data-ask>Sommelier</button>');
 }
 
 // The site's files and fonts stay on the device too: public/sw.js keeps each

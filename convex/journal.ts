@@ -49,12 +49,13 @@ export const uploadUrl = mutation({
 });
 
 // Sends a message to the sommelier. The date is the owner's own date,
-// YYYY-MM-DD, for the drinking log.
+// YYYY-MM-DD, for the drinking log. The context says what the owner is
+// looking at in the app.
 export const send = mutation({
-  args: { session: v.string(), text: v.string(), date: v.string(), files: v.array(file) },
-  handler: async (ctx, { session, text, date, files }) => {
+  args: { session: v.string(), text: v.string(), date: v.string(), files: v.array(file), context: v.optional(v.string()) },
+  handler: async (ctx, { session, text, date, files, context }) => {
     const owner = await signedIn(ctx.db, session);
-    await ctx.db.insert('messages', { owner, from: 'owner', text, date, files, status: 'waiting' });
+    await ctx.db.insert('messages', { owner, from: 'owner', text, date, files, context, status: 'waiting' });
     await ctx.scheduler.runAfter(0, internal.sommelier.respond, { owner });
   },
 });

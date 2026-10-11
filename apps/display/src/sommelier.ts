@@ -1,8 +1,9 @@
 // Sommelier: the owner's talk with the sommelier, the agent that keeps their
-// cellars (convex/sommelier.ts). Send a photo or a video of a bottle, a voice
-// note, or a few words. The sommelier proposes the wines to add, logs the
-// bottle you opened, answers questions, or asks what it needs to know. The
-// page needs the session of a device that signed in on the welcome page.
+// cellars (convex/sommelier.ts). It opens as a panel over any screen of the
+// signed-in app, and each message tells the sommelier what the owner is
+// looking at. Send a photo or a video of a bottle, a voice note, or a few
+// words. The sommelier proposes the wines to add, logs the bottle you opened,
+// answers questions, or asks what it needs to know.
 
 import { ConvexClient } from 'convex/browser';
 import type { FunctionReturnType } from 'convex/server';
@@ -24,9 +25,13 @@ interface Attachment {
 // finer than this.
 const LONG_EDGE = 1568;
 
-const session = localStorage.getItem('session') ?? '';
-const client = new ConvexClient(import.meta.env.VITE_CONVEX_URL);
-const app = document.getElementById('app') as HTMLElement;
+// The panel. It joins the page the first time it opens.
+const app = document.createElement('section');
+app.className = 'sommelier';
+let client!: ConvexClient;
+let session = '';
+// What the owner is looking at, from the screen that opened the panel.
+let context = '';
 const attachments: Attachment[] = [];
 let recorder: MediaRecorder | undefined;
 let recordingSince = 0;
@@ -35,7 +40,7 @@ let sending = false;
 app.innerHTML = `
   <header class="top">
     <h1>Sommelier</h1>
-    <a href="/">Your cellars</a>
+    <button type="button" class="close">Close</button>
   </header>
   <ol class="talk"></ol>
   <form class="composer">
@@ -55,6 +60,21 @@ const fileInput = app.querySelector('input[type=file]') as HTMLInputElement;
 const voiceButton = app.querySelector('.voice') as HTMLButtonElement;
 const textBox = app.querySelector('textarea') as HTMLTextAreaElement;
 const sendButton = app.querySelector('.send') as HTMLButtonElement;
+
+// Opens the panel over the page. The context says what the owner is looking at.
+export function openSommelier(convex: ConvexClient, signedIn: string, looking: string) {
+  context = looking;
+  if (!app.isConnected) {
+    client = convex;
+    session = signedIn;
+    document.body.append(app);
+    client.onUpdate(api.journal.talk, { session }, showTalk, (error) => showProblem(error.message));
+  }
+  document.documentElement.classList.add('chatting');
+  talkList.scrollTop = talkList.scrollHeight;
+}
+
+app.querySelector('.close')?.addEventListener('click', () => document.documentElement.classList.remove('chatting'));
 
 // ---- The talk ----------------------------------------------------------------
 
@@ -83,12 +103,21 @@ function showTalk(talk: Talk) {
       </li>`;
   });
   talkList.innerHTML = intro + items.join('');
-  scrollTo(0, document.documentElement.scrollHeight);
+  talkList.scrollTop = talkList.scrollHeight;
 }
 
 function showProblem(text: string) {
   talkList.innerHTML = `<li class="from-sommelier"><p>${escapeHtml(text)}</p></li>`;
 }
+
+// On a phone, the on-screen keyboard covers the foot of the screen. The page
+// takes the height of the part that still shows, so the composer stays above
+// the keyboard, and the newest message stays in view.
+visualViewport?.addEventListener('resize', () => {
+  app.style.height = `${visualViewport?.height}px`;
+  scrollTo(0, 0);
+  talkList.scrollTop = talkList.scrollHeight;
+});
 
 // ---- What you are about to send ----------------------------------------------
 
@@ -175,7 +204,7 @@ form.addEventListener('submit', async (event) => {
     }
     // The owner's own date, YYYY-MM-DD, for the drinking log.
     const date = new Date().toLocaleDateString('en-CA');
-    await client.mutation(api.journal.send, { session, text, date, files });
+    await client.mutation(api.journal.send, { session, text, date, files, context });
     attachments.length = 0;
     showAttachments();
     textBox.value = '';
@@ -233,12 +262,4 @@ function drawJpeg(source: CanvasImageSource, width: number, height: number): Pro
   canvas.height = Math.round(height * scale);
   canvas.getContext('2d')?.drawImage(source, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('could not read the image'))), 'image/jpeg', 0.85));
-}
-
-// ---- Start -----------------------------------------------------------------------
-
-if (!session) {
-  showProblem('Sign in on the welcome page first, then come back here.');
-} else {
-  client.onUpdate(api.journal.talk, { session }, showTalk, (error) => showProblem(error.message));
 }

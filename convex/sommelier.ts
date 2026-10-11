@@ -20,7 +20,7 @@ import wineSchema from '../shared/wines.schema.json';
 
 const MODEL = 'claude-opus-5';
 
-const SYSTEM = `You are the owner's sommelier. You keep their wine journal, and you answer their questions about their wine. The owner sends you messages: photos of bottles, labels, cases and racks, videos, voice notes and text. Each message starts with the date the owner sent it.
+const SYSTEM = `You are the owner's sommelier. You keep their wine journal, and you answer their questions about their wine. The owner sends you messages: photos of bottles, labels, cases and racks, videos, voice notes and text. Each message starts with the date the owner sent it, and with what the owner was looking at in the app: a page of one of their cellar books, or the welcome page. Words such as "this wine", "this one" or "these" mean the wine on that page, and the page gives its id. "This cellar" means the cellar of that book.
 
 The journal holds one or more cellars. Each cellar is a book with:
 - Its wines, with the number of bottles. A wine with no bottles left stays in the cellar's book, in the archive.
@@ -187,7 +187,9 @@ async function converse(ctx: ActionCtx, owner: string, talk: Talk): Promise<stri
     const content: Anthropic.ContentBlockParam[] = message.files
       .filter((each) => each.kind === 'image')
       .map((each) => ({ type: 'image', source: { type: 'url', url: each.url } }));
-    const lines = [`(Sent ${message.date})`, message.text];
+    const lines = [`(Sent ${message.date})`];
+    if (message.context) lines.push(`(Looking at: ${message.context})`);
+    lines.push(message.text);
     if (message.transcript) lines.push(`Spoken in a voice note or video: ${message.transcript}`);
     content.push({ type: 'text', text: lines.filter(Boolean).join('\n') });
     messages.push({ role: 'user', content });
