@@ -575,6 +575,10 @@ button.field {
   text-align: center;
 }
 
+.install:empty {
+  display: none;
+}
+
 .quiet {
   border: 0;
   background: none;

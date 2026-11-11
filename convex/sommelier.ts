@@ -19,6 +19,9 @@ import wineSchema from '../shared/wines.schema.json';
 // DEEPGRAM_API_KEY.
 
 const MODEL = 'claude-opus-5';
+// Claude sees the photos in the owner's newest messages. It read the older
+// ones before, and its replies say what was in them.
+const PHOTO_MESSAGES = 3;
 
 const SYSTEM = `You are the owner's sommelier. You keep their wine journal, and you answer their questions about their wine. The owner sends you messages: photos of bottles, labels, cases and racks, videos, voice notes and text. Each message starts with the date the owner sent it, and with what the owner was looking at in the app: a page of one of their cellar books, or the welcome page. Words such as "this wine", "this one" or "these" mean the wine on that page, and the page gives its id. "This cellar" means the cellar of that book.
 
@@ -178,16 +181,20 @@ async function deepgram(url: string): Promise<string> {
 async function converse(ctx: ActionCtx, owner: string, talk: Talk): Promise<string> {
   const client = new Anthropic();
   const messages: Anthropic.MessageParam[] = [];
+  const fromOwner = talk.filter((message) => message.from === 'owner');
+  const withPhotos = new Set(fromOwner.slice(-PHOTO_MESSAGES));
   for (const message of talk) {
     if (message.from === 'sommelier') {
       // The talk must start with the owner.
       if (messages.length) messages.push({ role: 'assistant', content: message.text });
       continue;
     }
-    const content: Anthropic.ContentBlockParam[] = message.files
-      .filter((each) => each.kind === 'image')
-      .map((each) => ({ type: 'image', source: { type: 'url', url: each.url } }));
+    const photos = message.files.filter((each) => each.kind === 'image');
+    const content: Anthropic.ContentBlockParam[] = withPhotos.has(message)
+      ? photos.map((each) => ({ type: 'image', source: { type: 'url', url: each.url } }))
+      : [];
     const lines = [`(Sent ${message.date})`];
+    if (photos.length && !withPhotos.has(message)) lines.push(`(${photos.length} photos, which you saw before)`);
     if (message.context) lines.push(`(Looking at: ${message.context})`);
     lines.push(message.text);
     if (message.transcript) lines.push(`Spoken in a voice note or video: ${message.transcript}`);
@@ -195,9 +202,19 @@ async function converse(ctx: ActionCtx, owner: string, talk: Talk): Promise<stri
     messages.push({ role: 'user', content });
   }
 
-  // Each turn, Claude answers or calls tools. A dozen turns is plenty.
+  // Each turn, Claude answers or calls tools. A dozen turns is plenty. Each
+  // turn sends the same start again, so the cache makes it cheap to read.
   for (let turn = 0; turn < 12; turn++) {
-    const response = await client.messages.create({ model: MODEL, max_tokens: 16000, system: SYSTEM, tools, messages });
+    const response = await client.messages.create({
+      model: MODEL,
+      max_tokens: 16000,
+      cache_control: { type: 'ephemeral' },
+      system: SYSTEM,
+      tools,
+      messages,
+    });
+    const usage = response.usage;
+    console.log(`Claude: ${usage.input_tokens} new input tokens, ${usage.cache_read_input_tokens ?? 0} read from the cache, ${usage.cache_creation_input_tokens ?? 0} written to it, ${usage.output_tokens} output.`);
     const calls = response.content.filter((block): block is Anthropic.ToolUseBlock => block.type === 'tool_use');
     if (response.stop_reason !== 'tool_use' || !calls.length) {
       const text = response.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n').trim();

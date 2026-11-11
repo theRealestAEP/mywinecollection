@@ -472,6 +472,7 @@ function coverScreen(title: string, subtitle: string, plate: Plate | undefined, 
 function showScreen(html: string) {
   pages = [];
   page.innerHTML = html;
+  showInstall();
   fitText();
   document.fonts.ready.then(fitText);
 }
@@ -485,6 +486,7 @@ function showHome({ email, cellars, plates }: Home) {
       `<a class="field" href="/?cellar=${cellar._id}"><i>Cellar</i><b>${escapeHtml(cellar.title)}, ${plural(cellar.bottles, 'bottle')}</b></a>`,
   );
   shelves.push('<button type="button" class="field" data-ask><i>Sommelier</i><b>add, log or ask about a wine</b></button>');
+  shelves.push('<div class="install"></div>');
   const subtitle = cellars.length ? 'choose a cellar' : 'ask the sommelier to start your first cellar';
   const plate = plates[Math.floor(Math.random() * plates.length)] ?? JOURNAL;
   showScreen(coverScreen(`Welcome, ${nameOf(email)}`, subtitle, plate, shelves.join(''), '<button type="button" class="quiet" data-sign-out>Sign out</button>'));
@@ -494,6 +496,7 @@ function showHome({ email, cellars, plates }: Home) {
 // in the email signs it in, wherever the link is opened (see convex/auth.ts).
 function showSignIn(problem = '') {
   const fields = `
+    <div class="install"></div>
     <form class="sign-in">
       <label class="field"><i>Email</i><input type="email" name="email" autocomplete="email" required /></label>
       <button class="field"><i></i><b>Send me a link</b></button>
@@ -559,6 +562,32 @@ function pageContext(): string {
   let list = 'tried elsewhere';
   if (inCellar(wine)) list = wine.quantity ? `${plural(wine.quantity, 'bottle')} in the cellar` : 'in the archive, with no bottles left';
   return `the page of ${wine.producer}, ${wine.name}, ${wine.vintage || 'NV'} (wine id ${wine._id}; ${list}) in ${where}`;
+}
+
+// ---- Install ---------------------------------------------------------------
+
+// On the home screen, the app opens with no browser bars. Until a phone has
+// it there, the sign-in and welcome pages help to put it there: Android's
+// browser offers an Install button, and an iPhone has Share, then Add to
+// Home Screen. The home-screen app keeps its own sign-in, so on an iPhone
+// it is best to install first.
+const installed =
+  matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+const iPhone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
+let installPrompt: (Event & { prompt: () => Promise<void> }) | undefined;
+
+addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPrompt = event as typeof installPrompt;
+  showInstall();
+});
+
+// Fills the install slot of the page on screen, if it has one.
+function showInstall() {
+  const slot = page.querySelector('.install');
+  if (!slot || installed) return;
+  if (installPrompt) slot.innerHTML = '<button type="button" class="field" data-install><i>App</i><b>Install Wine Journal</b></button>';
+  else if (iPhone) slot.innerHTML = '<p class="say">To keep Wine Journal as an app, tap Share, then Add to Home Screen. Then open it from your home screen, and sign in there.</p>';
 }
 
 // A new secret, made on this device.
@@ -819,6 +848,11 @@ addEventListener('click', (event) => {
   const target = event.target as Element;
   if (target.closest('[data-ask]')) openSommelier(client, session ?? '', pageContext());
   if (target.closest('[data-sign-out]')) signOut();
+  if (target.closest('[data-install]')) {
+    installPrompt?.prompt();
+    installPrompt = undefined;
+    target.closest('.install')?.replaceChildren();
+  }
   if (target.closest('[data-start-over]')) {
     localStorage.removeItem(SIGNING_IN);
     showSignIn();

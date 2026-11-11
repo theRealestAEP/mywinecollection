@@ -6,6 +6,7 @@
 // answers questions, or asks what it needs to know.
 
 import { ConvexClient } from 'convex/browser';
+import { ConvexError } from 'convex/values';
 import type { FunctionReturnType } from 'convex/server';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -210,7 +211,7 @@ form.addEventListener('submit', async (event) => {
     textBox.value = '';
     textBox.style.height = 'auto';
   } catch (error) {
-    alert(`The message did not send: ${error instanceof Error ? error.message : String(error)}`);
+    alert(error instanceof ConvexError ? error.data : `The message did not send: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
     sending = false;
     sendButton.textContent = 'Send';
