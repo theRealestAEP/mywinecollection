@@ -91,9 +91,7 @@ export default defineSchema({
   // The date is the owner's own date when they sent it, YYYY-MM-DD.
   messages: defineTable({
     owner: v.string(),
-    // MOVE: optional until convex/move.ts puts the talk from before chats
-    // into a chat.
-    chat: v.optional(v.id('chats')),
+    chat: v.id('chats'),
     from: v.union(v.literal('owner'), v.literal('sommelier')),
     text: v.string(),
     date: v.optional(v.string()),
