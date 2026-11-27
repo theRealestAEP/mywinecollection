@@ -250,6 +250,8 @@ The Sommelier is the app's chat. Send it a photo of your bottles or your racks, 
 
 When it needs to know more, it asks, for example: "Is this for the cellar, or did you try it somewhere?" or "Which cellar?"
 
+The talk is kept in chats, as in a chat app. The panel opens on your latest chat. **Chats** lists every chat, newest first, and **New chat** starts another. Nothing expires. In a chat, the sommelier reads the whole chat; in every chat, it can look up all your cellars and your drinking log. It can also search the web, for example for a wine or a producer that is new to it.
+
 The sommelier runs in Convex (`convex/sommelier.ts`). Claude reads the photos and does the thinking, and Deepgram turns the speech in voice notes and videos into text. Set their keys as Convex environment variables. Each command asks for the value:
 
 ```bash

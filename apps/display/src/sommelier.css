@@ -43,6 +43,79 @@
   color: var(--form);
 }
 
+.sommelier .top nav {
+  display: flex;
+  gap: 14px;
+}
+
+.sommelier .show-chats,
+.sommelier .new-chat {
+  border: 0;
+  background: none;
+  font-family: var(--print);
+  font-size: 16px;
+  font-style: italic;
+  color: var(--ink);
+}
+
+/* The list of chats, newest first. It takes the place of the talk while it shows. */
+.sommelier .chat-list {
+  display: none;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 0;
+  list-style: none;
+}
+
+.sommelier.listing .chat-list {
+  display: block;
+}
+
+.sommelier.listing .talk,
+.sommelier.listing .composer {
+  display: none;
+}
+
+.sommelier .chat-list button {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  color: var(--ink);
+  font-family: var(--print);
+  text-align: left;
+}
+
+.sommelier .chat-list b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 22px var(--hand);
+}
+
+.sommelier .chat-list span {
+  flex: none;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--form);
+}
+
+.sommelier .chat-list .current b {
+  text-decoration: underline;
+}
+
+.sommelier .chat-list .none {
+  padding: 12px 0;
+  font-style: italic;
+  color: var(--form);
+}
+
 /* The talk: the sommelier on the left, the owner on the right */
 .sommelier .talk {
   flex: 1;

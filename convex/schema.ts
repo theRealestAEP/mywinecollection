@@ -77,12 +77,23 @@ export default defineSchema({
     notes: v.optional(v.string()),
   }).index('by_cellar', ['cellar']),
 
-  // Each person's talk with the sommelier, the agent that keeps their
-  // cellars. The owner sends text, photos, videos and voice notes; the
+  // Each person's chats with the sommelier, as in a chat app. The title comes
+  // from the chat's first message, and updated is when its last message came.
+  chats: defineTable({
+    owner: v.string(),
+    title: v.string(),
+    updated: v.number(),
+  }).index('by_owner_and_updated', ['owner', 'updated']),
+
+  // The messages of each person's chats with the sommelier, the agent that
+  // keeps their cellars. The owner sends text, photos, videos and voice notes; the
   // sommelier replies. An owner's message waits until the sommelier reads it.
   // The date is the owner's own date when they sent it, YYYY-MM-DD.
   messages: defineTable({
     owner: v.string(),
+    // MOVE: optional until convex/move.ts puts the talk from before chats
+    // into a chat.
+    chat: v.optional(v.id('chats')),
     from: v.union(v.literal('owner'), v.literal('sommelier')),
     text: v.string(),
     date: v.optional(v.string()),
@@ -100,8 +111,8 @@ export default defineSchema({
     transcript: v.optional(v.string()),
     status: v.optional(v.union(v.literal('waiting'), v.literal('reading'), v.literal('done'), v.literal('failed'))),
   })
-    .index('by_owner', ['owner'])
-    .index('by_owner_and_status', ['owner', 'status']),
+    .index('by_chat', ['chat'])
+    .index('by_chat_and_status', ['chat', 'status']),
 
   // A key opens one cellar's book, read-only, with no sign-in. A "display" is
   // a tablet at home and a "share" is a link for friends. The database keeps

@@ -44,6 +44,8 @@ When the owner asks to change the journal:
 
 When the owner asks about their wine, look it up with find_wines, get_wine and read_log, and answer from what you find: what they have, where it is, what is ready to drink, what they drank and when, and what to open with a meal.
 
+You can search the web with web_search. Search when a label or a producer is new to you, or when you are not sure of a detail, such as the grapes, the drinking window or the producer's history. Do not search for what you know well. When an answer uses what you found, say where it came from in a few words.
+
 Write plainly, like a friend who knows wine. Keep replies short. Do not use headings or Markdown.`;
 
 // The wine object from shared/wines.schema.json: the fields of a wine's page,
@@ -70,7 +72,9 @@ const logEntry = {
 
 const cellarId = { type: 'string', description: "The id of one of the owner's cellars, from list_cellars." };
 
-const tools: Anthropic.Tool[] = [
+const tools: Anthropic.ToolUnion[] = [
+  // Runs on Anthropic's servers: it needs no key of its own.
+  { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
   {
     name: 'list_cellars',
     description: "Lists the owner's cellars, with the id, the title, and the number of wines and bottles in each.",
@@ -132,23 +136,23 @@ const tools: Anthropic.Tool[] = [
   },
 ];
 
-type Talk = FunctionReturnType<typeof internal.journal.recentTalk>;
+type Talk = FunctionReturnType<typeof internal.journal.chatTalk>;
 
 export const respond = internalAction({
-  args: { owner: v.string() },
-  handler: async (ctx, { owner }) => {
-    // Answer the waiting messages, then look again: more may have come in.
+  args: { owner: v.string(), chat: v.id('chats') },
+  handler: async (ctx, { owner, chat }) => {
+    // Answer the chat's waiting messages, then look again: more may have come in.
     for (;;) {
-      const read = await ctx.runMutation(internal.journal.takeWaiting, { owner });
+      const read = await ctx.runMutation(internal.journal.takeWaiting, { chat });
       if (!read.length) return;
       try {
-        const talk = await ctx.runQuery(internal.journal.recentTalk, { owner });
+        const talk = await ctx.runQuery(internal.journal.chatTalk, { chat });
         await transcribe(ctx, talk);
         const text = await converse(ctx, owner, talk);
-        await ctx.runMutation(internal.journal.reply, { owner, text, read, failed: false });
+        await ctx.runMutation(internal.journal.reply, { owner, chat, text, read, failed: false });
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
-        await ctx.runMutation(internal.journal.reply, { owner, text: `Something went wrong, and I changed nothing more. (${reason})`, read, failed: true });
+        await ctx.runMutation(internal.journal.reply, { owner, chat, text: `Something went wrong, and I changed nothing more. (${reason})`, read, failed: true });
       }
     }
   },
@@ -205,6 +209,9 @@ async function converse(ctx: ActionCtx, owner: string, talk: Talk): Promise<stri
   // Each turn, Claude answers or calls tools, until it answers. Each turn
   // sends the same start again, so the cache makes it cheap to read. Convex
   // stops an action after ten minutes.
+  // A long web search can pause a turn. Sent back as it is, the turn goes on
+  // where it stopped; its text so far is kept for the reply.
+  let paused = '';
   for (;;) {
     const response = await client.messages.create({
       model: MODEL,
@@ -216,11 +223,15 @@ async function converse(ctx: ActionCtx, owner: string, talk: Talk): Promise<stri
     });
     const usage = response.usage;
     console.log(`Claude: ${usage.input_tokens} new input tokens, ${usage.cache_read_input_tokens ?? 0} read from the cache, ${usage.cache_creation_input_tokens ?? 0} written to it, ${usage.output_tokens} output.`);
-    const calls = response.content.filter((block): block is Anthropic.ToolUseBlock => block.type === 'tool_use');
-    if (response.stop_reason !== 'tool_use' || !calls.length) {
-      const text = response.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n').trim();
-      return text || 'Done.';
+    // Search results split the reply's text into blocks, mid-sentence.
+    const text = response.content.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('');
+    if (response.stop_reason === 'pause_turn') {
+      paused += text;
+      messages.push({ role: 'assistant', content: response.content });
+      continue;
     }
+    const calls = response.content.filter((block): block is Anthropic.ToolUseBlock => block.type === 'tool_use');
+    if (response.stop_reason !== 'tool_use' || !calls.length) return (paused + text).trim() || 'Done.';
     messages.push({ role: 'assistant', content: response.content });
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const call of calls) {

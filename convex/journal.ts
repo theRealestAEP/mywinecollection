@@ -32,13 +32,27 @@ async function withLinks(ctx: QueryCtx, message: Doc<'messages'>) {
   return { ...message, files };
 }
 
-async function latestTalk(ctx: QueryCtx, owner: string, count: number) {
-  const latest = await ctx.db
+// A chat's messages, oldest first.
+async function messagesOf(ctx: QueryCtx, chat: Id<'chats'>) {
+  const messages = await ctx.db
     .query('messages')
-    .withIndex('by_owner', (q) => q.eq('owner', owner))
-    .order('desc')
-    .take(count);
-  return Promise.all(latest.reverse().map((message) => withLinks(ctx, message)));
+    .withIndex('by_chat', (q) => q.eq('chat', chat))
+    .collect();
+  return Promise.all(messages.map((message) => withLinks(ctx, message)));
+}
+
+async function ownChat(db: DatabaseReader, owner: string, chatId: Id<'chats'>) {
+  const chat = await db.get(chatId);
+  if (chat?.owner !== owner) throw new ConvexError('This chat is not yours.');
+  return chat;
+}
+
+// A new chat's title: the first line of its first message, or what it sent.
+function titleOf(text: string, files: { kind: 'image' | 'audio' | 'video' }[]) {
+  const line = text.trim().split('\n')[0];
+  if (line) return line.length > 48 ? `${line.slice(0, 47).trimEnd()}…` : line;
+  const names = { image: 'Photo', audio: 'Voice note', video: 'Video' };
+  return files.length ? names[files[0].kind] : 'New chat';
 }
 
 // ---- The app ---------------------------------------------------------------
@@ -52,12 +66,19 @@ export const uploadUrl = mutation({
   },
 });
 
-// Sends a message to the sommelier. The date is the owner's own date,
-// YYYY-MM-DD, for the drinking log. The context says what the owner is
-// looking at in the app.
+// Sends a message to the sommelier, in a chat, or else in a new chat.
+// Returns the chat's id. The date is the owner's own date, YYYY-MM-DD, for
+// the drinking log. The context says what the owner is looking at in the app.
 export const send = mutation({
-  args: { session: v.string(), text: v.string(), date: v.string(), files: v.array(file), context: v.optional(v.string()) },
-  handler: async (ctx, { session, text, date, files, context }) => {
+  args: {
+    session: v.string(),
+    chatId: v.optional(v.id('chats')),
+    text: v.string(),
+    date: v.string(),
+    files: v.array(file),
+    context: v.optional(v.string()),
+  },
+  handler: async (ctx, { session, chatId, text, date, files, context }) => {
     const owner = await signedIn(ctx.db, session);
     if (files.length > FILES_PER_MESSAGE) throw new ConvexError(`Send at most ${FILES_PER_MESSAGE} photos, videos and voice notes at a time.`);
     for (const each of files) {
@@ -65,30 +86,51 @@ export const send = mutation({
       if (!stored) throw new ConvexError('A file did not upload. Send it again.');
       if (stored.size > FILE_SIZE) throw new ConvexError('A file is larger than 100 MB. Send a shorter video.');
     }
-    await ctx.db.insert('messages', { owner, from: 'owner', text, date, files, context, status: 'waiting' });
-    await ctx.scheduler.runAfter(0, internal.sommelier.respond, { owner });
+    if (chatId) await ownChat(ctx.db, owner, chatId);
+    const chat = chatId ?? (await ctx.db.insert('chats', { owner, title: titleOf(text, files), updated: Date.now() }));
+    await ctx.db.insert('messages', { owner, chat, from: 'owner', text, date, files, context, status: 'waiting' });
+    await ctx.db.patch(chat, { updated: Date.now() });
+    await ctx.scheduler.runAfter(0, internal.sommelier.respond, { owner, chat });
+    return chat;
   },
 });
 
-// The latest talk, oldest first.
-export const talk = query({
+// The owner's chats, newest first.
+export const chats = query({
   args: { session: v.string() },
-  handler: async (ctx, { session }) => latestTalk(ctx, await signedIn(ctx.db, session), 50),
+  handler: async (ctx, { session }) => {
+    const owner = await signedIn(ctx.db, session);
+    const chats = await ctx.db
+      .query('chats')
+      .withIndex('by_owner_and_updated', (q) => q.eq('owner', owner))
+      .order('desc')
+      .collect();
+    return chats.map(({ _id, title, updated }) => ({ _id, title, updated }));
+  },
+});
+
+// One of the owner's chats, oldest message first.
+export const talk = query({
+  args: { session: v.string(), chatId: v.id('chats') },
+  handler: async (ctx, { session, chatId }) => {
+    await ownChat(ctx.db, await signedIn(ctx.db, session), chatId);
+    return messagesOf(ctx, chatId);
+  },
 });
 
 // ---- The sommelier's own functions -----------------------------------------
 
-// Marks the owner's waiting messages as read, and returns them. The sommelier
-// reads one batch at a time for each owner: while it reads, newer messages
-// wait for it. A read that started over half an hour ago has failed, since an
+// Marks a chat's waiting messages as read, and returns them. The sommelier
+// reads one batch at a time in each chat: while it reads, newer messages wait
+// for it. A read that started over half an hour ago has failed, since an
 // action stops after ten minutes.
 export const takeWaiting = internalMutation({
-  args: { owner: v.string() },
-  handler: async (ctx, { owner }) => {
+  args: { chat: v.id('chats') },
+  handler: async (ctx, { chat }) => {
     const withStatus = (status: 'waiting' | 'reading') =>
       ctx.db
         .query('messages')
-        .withIndex('by_owner_and_status', (q) => q.eq('owner', owner).eq('status', status))
+        .withIndex('by_chat_and_status', (q) => q.eq('chat', chat).eq('status', status))
         .collect();
     const reading = await withStatus('reading');
     if (reading.some((message) => Date.now() - message._creationTime < 30 * 60_000)) return [];
@@ -99,10 +141,10 @@ export const takeWaiting = internalMutation({
   },
 });
 
-// The latest talk for the sommelier, oldest first.
-export const recentTalk = internalQuery({
-  args: { owner: v.string() },
-  handler: async (ctx, { owner }) => latestTalk(ctx, owner, 20),
+// A chat for the sommelier, oldest message first.
+export const chatTalk = internalQuery({
+  args: { chat: v.id('chats') },
+  handler: async (ctx, { chat }) => messagesOf(ctx, chat),
 });
 
 // What Deepgram heard in a message's voice notes and videos.
@@ -113,12 +155,13 @@ export const setTranscript = internalMutation({
   },
 });
 
-// The sommelier's reply. The messages it read are done, or failed.
+// The sommelier's reply in a chat. The messages it read are done, or failed.
 export const reply = internalMutation({
-  args: { owner: v.string(), text: v.string(), read: v.array(v.id('messages')), failed: v.boolean() },
-  handler: async (ctx, { owner, text, read, failed }) => {
+  args: { owner: v.string(), chat: v.id('chats'), text: v.string(), read: v.array(v.id('messages')), failed: v.boolean() },
+  handler: async (ctx, { owner, chat, text, read, failed }) => {
     for (const messageId of read) await ctx.db.patch(messageId, { status: failed ? 'failed' : 'done' });
-    await ctx.db.insert('messages', { owner, from: 'sommelier', text });
+    await ctx.db.insert('messages', { owner, chat, from: 'sommelier', text });
+    await ctx.db.patch(chat, { updated: Date.now() });
   },
 });
 

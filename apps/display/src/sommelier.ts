@@ -1,7 +1,8 @@
 // Sommelier: the owner's talk with the sommelier, the agent that keeps their
 // cellars (convex/sommelier.ts). It opens as a panel over any screen of the
 // signed-in app, and each message tells the sommelier what the owner is
-// looking at. Send a photo or a video of a bottle, a voice note, or a few
+// looking at. The talk is kept in chats, as in a chat app: the panel opens on
+// the latest chat, and the Chats list leads to the others. Send a photo or a video of a bottle, a voice note, or a few
 // words. The sommelier proposes the wines to add, logs the bottle you opened,
 // answers questions, or asks what it needs to know.
 
@@ -14,6 +15,7 @@ import { escapeHtml } from '../../../shared/draw';
 import './sommelier.css';
 
 type Talk = FunctionReturnType<typeof api.journal.talk>;
+type Chats = FunctionReturnType<typeof api.journal.chats>;
 type Kind = 'image' | 'audio' | 'video';
 interface Attachment {
   kind: Kind;
@@ -33,6 +35,9 @@ let client!: ConvexClient;
 let session = '';
 // What the owner is looking at, from the screen that opened the panel.
 let context = '';
+// The chat on screen, or none for a new chat that has no messages yet.
+let chatId: Id<'chats'> | undefined;
+let stopTalk: (() => void) | undefined;
 const attachments: Attachment[] = [];
 let recorder: MediaRecorder | undefined;
 let recordingSince = 0;
@@ -41,8 +46,13 @@ let sending = false;
 app.innerHTML = `
   <header class="top">
     <h1>Sommelier</h1>
-    <button type="button" class="close">Close</button>
+    <nav>
+      <button type="button" class="show-chats">Chats</button>
+      <button type="button" class="new-chat">New chat</button>
+      <button type="button" class="close">Close</button>
+    </nav>
   </header>
+  <ol class="chat-list"></ol>
   <ol class="talk"></ol>
   <form class="composer">
     <ul class="attachments"></ul>
@@ -55,6 +65,7 @@ app.innerHTML = `
   </form>`;
 
 const talkList = app.querySelector('.talk') as HTMLOListElement;
+const chatList = app.querySelector('.chat-list') as HTMLOListElement;
 const form = app.querySelector('.composer') as HTMLFormElement;
 const attachmentList = app.querySelector('.attachments') as HTMLUListElement;
 const fileInput = app.querySelector('input[type=file]') as HTMLInputElement;
@@ -69,13 +80,59 @@ export function openSommelier(convex: ConvexClient, signedIn: string, looking: s
     client = convex;
     session = signedIn;
     document.body.append(app);
-    client.onUpdate(api.journal.talk, { session }, showTalk, (error) => showProblem(error.message));
+    // The list of chats follows the owner's chats. The panel starts on the latest one.
+    let started = false;
+    client.onUpdate(api.journal.chats, { session }, (chats) => {
+      showChats(chats);
+      if (started) return;
+      started = true;
+      if (chats.length) openChat(chats[0]._id);
+      else newChat();
+    });
   }
   document.documentElement.classList.add('chatting');
   talkList.scrollTop = talkList.scrollHeight;
 }
 
+function openChat(id: Id<'chats'>) {
+  stopTalk?.();
+  chatId = id;
+  stopTalk = client.onUpdate(api.journal.talk, { session, chatId: id }, showTalk, (error) => showProblem(error.message));
+  app.classList.remove('listing');
+}
+
+function newChat() {
+  stopTalk?.();
+  stopTalk = undefined;
+  chatId = undefined;
+  showTalk([]);
+  app.classList.remove('listing');
+  textBox.focus();
+}
+
+function showChats(chats: Chats) {
+  const day = (time: number) => new Date(time).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  chatList.innerHTML =
+    chats
+      .map(
+        (chat) => `
+          <li><button type="button" data-chat="${chat._id}" class="${chat._id === chatId ? 'current' : ''}">
+            <b>${escapeHtml(chat.title)}</b><span>${day(chat.updated)}</span>
+          </button></li>`,
+      )
+      .join('') || '<li class="none">No chats yet.</li>';
+}
+
 app.querySelector('.close')?.addEventListener('click', () => document.documentElement.classList.remove('chatting'));
+app.querySelector('.new-chat')?.addEventListener('click', newChat);
+app.querySelector('.show-chats')?.addEventListener('click', () => {
+  chatList.querySelectorAll('[data-chat]').forEach((button) => button.classList.toggle('current', button.getAttribute('data-chat') === chatId));
+  app.classList.toggle('listing');
+});
+chatList.addEventListener('click', (event) => {
+  const id = (event.target as Element).closest('[data-chat]')?.getAttribute('data-chat');
+  if (id) openChat(id as Id<'chats'>);
+});
 
 // ---- The talk ----------------------------------------------------------------
 
@@ -205,7 +262,8 @@ form.addEventListener('submit', async (event) => {
     }
     // The owner's own date, YYYY-MM-DD, for the drinking log.
     const date = new Date().toLocaleDateString('en-CA');
-    await client.mutation(api.journal.send, { session, text, date, files, context });
+    const sentTo = await client.mutation(api.journal.send, { session, chatId, text, date, files, context });
+    if (!chatId) openChat(sentTo);
     attachments.length = 0;
     showAttachments();
     textBox.value = '';
