@@ -259,7 +259,7 @@ npx convex env set DEEPGRAM_API_KEY --prod
 
 Leave out `--prod` to set them on your dev deployment. Then sign in on the welcome page, and tap **Sommelier**.
 
-To keep each account in bounds, the sommelier takes at most 30 messages an hour, 10 photos, videos and voice notes in one message, and 100 MB for each file (`convex/journal.ts`). One reply takes at most 12 steps. Each request to Claude uses prompt caching, so the steps of a reply read the instructions, the tools and the talk from the cache. Claude sees the photos of your 3 newest messages again; it read the older ones before. The Convex logs show the cache use of each request.
+One message to the sommelier holds at most 10 photos, videos and voice notes, and 100 MB for each file (`convex/journal.ts`). Each request to Claude uses prompt caching, so the steps of a reply read the instructions, the tools and the talk from the cache. Claude sees the photos of your 3 newest messages again; it read the older ones before. The Convex logs show the cache use of each request.
 
 ## Add a wine from Claude Code
 

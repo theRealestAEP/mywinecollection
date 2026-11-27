@@ -17,9 +17,7 @@ const file = v.object({
   kind: v.union(v.literal('image'), v.literal('audio'), v.literal('video')),
 });
 
-// Limits on what one owner can send, so that a stuck phone or a mistake
-// cannot fill the storage or keep the sommelier busy.
-const MESSAGES_PER_HOUR = 30;
+// Limits on one message, so that a mistake cannot fill the storage.
 const FILES_PER_MESSAGE = 10;
 const FILE_SIZE = 100 * 1024 * 1024;
 
@@ -61,15 +59,6 @@ export const send = mutation({
   args: { session: v.string(), text: v.string(), date: v.string(), files: v.array(file), context: v.optional(v.string()) },
   handler: async (ctx, { session, text, date, files, context }) => {
     const owner = await signedIn(ctx.db, session);
-    let lastHour = 0;
-    for await (const message of ctx.db
-      .query('messages')
-      .withIndex('by_owner', (q) => q.eq('owner', owner))
-      .order('desc')) {
-      if (message._creationTime < Date.now() - 60 * 60_000) break;
-      if (message.from === 'owner') lastHour += 1;
-    }
-    if (lastHour >= MESSAGES_PER_HOUR) throw new ConvexError(`You sent ${MESSAGES_PER_HOUR} messages in the last hour. Wait a little, then send this again.`);
     if (files.length > FILES_PER_MESSAGE) throw new ConvexError(`Send at most ${FILES_PER_MESSAGE} photos, videos and voice notes at a time.`);
     for (const each of files) {
       const stored = await ctx.db.system.get(each.storageId);

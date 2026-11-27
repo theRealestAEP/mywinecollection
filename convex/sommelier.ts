@@ -202,9 +202,10 @@ async function converse(ctx: ActionCtx, owner: string, talk: Talk): Promise<stri
     messages.push({ role: 'user', content });
   }
 
-  // Each turn, Claude answers or calls tools. A dozen turns is plenty. Each
-  // turn sends the same start again, so the cache makes it cheap to read.
-  for (let turn = 0; turn < 12; turn++) {
+  // Each turn, Claude answers or calls tools, until it answers. Each turn
+  // sends the same start again, so the cache makes it cheap to read. Convex
+  // stops an action after ten minutes.
+  for (;;) {
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 16000,
@@ -231,7 +232,6 @@ async function converse(ctx: ActionCtx, owner: string, talk: Talk): Promise<stri
     }
     messages.push({ role: 'user', content: results });
   }
-  throw new Error('The sommelier took too many steps.');
 }
 
 // Runs one tool for the owner. Convex checks each input against the schema,
