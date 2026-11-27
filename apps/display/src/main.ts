@@ -576,8 +576,6 @@ const installed =
 const iPhone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
 let installPrompt: (Event & { prompt: () => Promise<void> }) | undefined;
 
-const SKIP_INSTALL = 'skip-install';
-
 addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
   installPrompt = event as typeof installPrompt;
@@ -610,10 +608,7 @@ function showInstall() {
 
 // The first page in a browser: how to install the app.
 function showInstallGuide() {
-  const fields = `
-    <div class="install"></div>
-    <button type="button" class="quiet" data-skip-install>Continue in the browser</button>`;
-  showScreen(coverScreen('Wine Journal', 'your cellars, on your phone', JOURNAL, fields));
+  showScreen(coverScreen('Wine Journal', 'your cellars, on your phone', JOURNAL, '<div class="install"></div>'));
 }
 
 // A new secret, made on this device.
@@ -874,10 +869,6 @@ addEventListener('click', (event) => {
   const target = event.target as Element;
   if (target.closest('[data-ask]')) openSommelier(client, session ?? '', pageContext());
   if (target.closest('[data-sign-out]')) signOut();
-  if (target.closest('[data-skip-install]')) {
-    localStorage.setItem(SKIP_INSTALL, 'yes');
-    showSignIn();
-  }
   if (target.closest('[data-install]')) {
     installPrompt?.prompt();
     installPrompt = undefined;
@@ -905,7 +896,7 @@ if (key) {
   showApprove(link);
 } else if (!session) {
   if (signingIn) showWaiting(JSON.parse(signingIn));
-  else if (!installed && !localStorage.getItem(SKIP_INSTALL)) showInstallGuide();
+  else if (!installed) showInstallGuide();
   else showSignIn();
 } else {
   if (cellarId) {
