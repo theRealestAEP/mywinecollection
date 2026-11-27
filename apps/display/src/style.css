@@ -575,6 +575,18 @@ button.field {
   text-align: center;
 }
 
+.steps {
+  padding-left: 28px;
+  font-family: var(--hand);
+  font-size: 22px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.steps li + li {
+  margin-top: 8px;
+}
+
 .install:empty {
   display: none;
 }

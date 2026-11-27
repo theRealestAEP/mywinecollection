@@ -496,7 +496,6 @@ function showHome({ email, cellars, plates }: Home) {
 // in the email signs it in, wherever the link is opened (see convex/auth.ts).
 function showSignIn(problem = '') {
   const fields = `
-    <div class="install"></div>
     <form class="sign-in">
       <label class="field"><i>Email</i><input type="email" name="email" autocomplete="email" required /></label>
       <button class="field"><i></i><b>Send me a link</b></button>
@@ -566,15 +565,18 @@ function pageContext(): string {
 
 // ---- Install ---------------------------------------------------------------
 
-// On the home screen, the app opens with no browser bars. Until a phone has
-// it there, the sign-in and welcome pages help to put it there: Android's
-// browser offers an Install button, and an iPhone has Share, then Add to
-// Home Screen. The home-screen app keeps its own sign-in, so on an iPhone
-// it is best to install first.
+// On the home screen, the app opens with no browser bars. Until a device has
+// it there, the first page is a walk-through to put it there: Android's
+// browser, Chrome and Edge offer an Install button, and an iPhone has only
+// Share, then Add to Home Screen. The home-screen app keeps its own sign-in,
+// so it is best to install first. The welcome page has the same help for a
+// person who signed in in the browser.
 const installed =
   matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 const iPhone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
 let installPrompt: (Event & { prompt: () => Promise<void> }) | undefined;
+
+const SKIP_INSTALL = 'skip-install';
 
 addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
@@ -582,12 +584,36 @@ addEventListener('beforeinstallprompt', (event) => {
   showInstall();
 });
 
+addEventListener('appinstalled', () => {
+  installPrompt = undefined;
+  const slot = page.querySelector('.install');
+  if (slot) slot.innerHTML = '<p class="say">Installed. Open Wine Journal from your home screen, and sign in there.</p>';
+});
+
 // Fills the install slot of the page on screen, if it has one.
 function showInstall() {
   const slot = page.querySelector('.install');
   if (!slot || installed) return;
-  if (installPrompt) slot.innerHTML = '<button type="button" class="field" data-install><i>App</i><b>Install Wine Journal</b></button>';
-  else if (iPhone) slot.innerHTML = '<p class="say">To keep Wine Journal as an app, tap Share, then Add to Home Screen. Then open it from your home screen, and sign in there.</p>';
+  if (installPrompt) {
+    slot.innerHTML = '<button type="button" class="field" data-install><i>App</i><b>Install Wine Journal</b></button>';
+  } else if (iPhone) {
+    slot.innerHTML = `
+      <ol class="steps">
+        <li>Tap <b>Share</b> in Safari: the square with an arrow. If you do not see it, tap <b>⋯</b> first.</li>
+        <li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        <li>Open <b>Wine Journal</b> from your home screen, and sign in there.</li>
+      </ol>`;
+  } else {
+    slot.innerHTML = '<p class="say">In your browser’s menu, choose <b>Install app</b> or <b>Add to Home screen</b>. Then open Wine Journal from there, and sign in.</p>';
+  }
+}
+
+// The first page in a browser: how to install the app.
+function showInstallGuide() {
+  const fields = `
+    <div class="install"></div>
+    <button type="button" class="quiet" data-skip-install>Continue in the browser</button>`;
+  showScreen(coverScreen('Wine Journal', 'your cellars, on your phone', JOURNAL, fields));
 }
 
 // A new secret, made on this device.
@@ -848,6 +874,10 @@ addEventListener('click', (event) => {
   const target = event.target as Element;
   if (target.closest('[data-ask]')) openSommelier(client, session ?? '', pageContext());
   if (target.closest('[data-sign-out]')) signOut();
+  if (target.closest('[data-skip-install]')) {
+    localStorage.setItem(SKIP_INSTALL, 'yes');
+    showSignIn();
+  }
   if (target.closest('[data-install]')) {
     installPrompt?.prompt();
     installPrompt = undefined;
@@ -875,6 +905,7 @@ if (key) {
   showApprove(link);
 } else if (!session) {
   if (signingIn) showWaiting(JSON.parse(signingIn));
+  else if (!installed && !localStorage.getItem(SKIP_INSTALL)) showInstallGuide();
   else showSignIn();
 } else {
   if (cellarId) {
