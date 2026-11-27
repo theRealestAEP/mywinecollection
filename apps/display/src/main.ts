@@ -565,8 +565,8 @@ function pageContext(): string {
 
 // ---- Install ---------------------------------------------------------------
 
-// On the home screen, the app opens with no browser bars. Until a device has
-// it there, the first page is a walk-through to put it there: Android's
+// On the home screen, the app opens with no browser bars. Until a phone or a
+// tablet has it there, the first page is a walk-through to put it there: Android's
 // browser, Chrome and Edge offer an Install button, and an iPhone has only
 // Share, then Add to Home Screen. The home-screen app keeps its own sign-in,
 // so it is best to install first. The welcome page has the same help for a
@@ -574,6 +574,9 @@ function pageContext(): string {
 const installed =
   matchMedia('(display-mode: standalone)').matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 const iPhone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1);
+// Phones and tablets get the walk-through first. A computer uses the app in
+// the browser, and the welcome page offers to install it.
+const mobile = iPhone || /Android|Mobile/.test(navigator.userAgent);
 let installPrompt: (Event & { prompt: () => Promise<void> }) | undefined;
 
 addEventListener('beforeinstallprompt', (event) => {
@@ -896,7 +899,7 @@ if (key) {
   showApprove(link);
 } else if (!session) {
   if (signingIn) showWaiting(JSON.parse(signingIn));
-  else if (!installed) showInstallGuide();
+  else if (mobile && !installed) showInstallGuide();
   else showSignIn();
 } else {
   if (cellarId) {
